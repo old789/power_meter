@@ -1,9 +1,20 @@
+
+#define PZEM004_NO_SWSERIAL
+
+//#define WIFI_ENABLE
+
 //#include <ModbusMaster.h>  // not use with PZEM004Tv30
-#include <ESP8266WiFi.h>
 #include <PZEM004Tv30.h>
-#include <SoftwareSerial.h> // ( NODEMCU ESP8266 )
-#include <ESP8266HTTPClient.h>
+
+#ifdef WIFI_ENABLE
+#include <ESP8266WiFi.h>
 #include <WiFiClient.h>
+#include <ESP8266HTTPClient.h>
+#endif
+
+#ifndef PZEM004_NO_SWSERIAL
+#include <SoftwareSerial.h> // ( NODEMCU ESP8266 )
+#endif
 
 /*
 /SoftwareSerial pzem(D5,D6); // (RX,TX) connect to TX,RX of PZEM for NodeMCU
@@ -12,13 +23,28 @@ ModbusMaster node;
 */
 
 #define MEASUREMENTS 10
+#define MAIN_DELAY 1000
+
+#ifdef PZEM004_NO_SWSERIAL
+
+#define PZEM_SERIAL Serial
+#define CONSOLE Serial1
+
+PZEM004Tv30 pzem(PZEM_SERIAL);
+
+#else
 
 #define PZEM_RX_PIN 14
 #define PZEM_TX_PIN 12
+#define CONSOLE Serial
 
 SoftwareSerial pzemSWSerial(PZEM_RX_PIN, PZEM_TX_PIN);
 PZEM004Tv30 pzem(pzemSWSerial);
 
+#endif
+
+
+#ifdef WIFI_ENABLE
 //WiFi data
 char ssid[] = "SSID"; //WiFi Credential
 char pass[] = "PASSW"; //WiFi Password
@@ -26,13 +52,15 @@ char pass[] = "PASSW"; //WiFi Password
 //Domain name with URL
 const char* serverName = "http://10.10.10.10/pwr/pwrm.php";
 
+WiFiClient client;
+
+#endif
+
 int cnt=0;
 int i=0;
 double U_PR, I_PR, P_PR, PPR, PR_F, PR_PF;
-//uint8_t result;
-//uint16_t data[6];
-
-WiFiClient client;
+unsigned long upcounter=0;
+bool rc=false;
 
 char str_voltage[8];
 char str_current[8];
@@ -46,38 +74,57 @@ char str_post[4096];
 double main_buffer [MEASUREMENTS+1][6];
 
 void setup(){
-  Serial.begin(115200);
+#ifdef PZEM004_NO_SWSERIAL
+  Serial.swap();
+#endif
+  CONSOLE.begin(115200);
   delay(50);
-  Serial.println("Start serial");
+  CONSOLE.println("Start serial");
 /*
   pzem.begin(9600);
-  Serial.println("Start PZEM serial");
+  CONSOLE.println("Start PZEM serial");
   node.begin(1, pzem);  // 1 = ID MODBUS
-  Serial.println("Start PZEM");
+  CONSOLE.println("Start PZEM");
 */  
+  PPR = pzem.energy();
+  if ( ( !isnan(PPR) ) && ( PPR > 0 ) ) {
+    if ( pzem.resetEnergy()) {
+      CONSOLE.println("Reset energy counter");
+    }else{
+      CONSOLE.println("Can't reset energy counter");
+    }
+  }
+ 
+#ifdef WIFI_ENABLE
+
+  CONSOLE.print("Connecting to ");
+  CONSOLE.print(ssid);
+  CONSOLE.println(" ...");
+  
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);             // Connect to the network
-  Serial.print("Connecting to ");
-  Serial.print(ssid);
-  Serial.println(" ...");
+
+  CONSOLE.println("Is connect?..");
 
   int i = 0;
   while (WiFi.status() != WL_CONNECTED) { // Wait for the Wi-Fi to connect
     delay(1000);
-    Serial.print(++i); Serial.print(' ');
+    CONSOLE.print(++i); CONSOLE.print(' ');
   }
 
-  Serial.println('\n');
-  Serial.println("Connection established!");  
-  Serial.print("IP address:\t");
-  Serial.println(WiFi.localIP());
+  CONSOLE.println('\n');
+  CONSOLE.println("Connection established!");  
+  CONSOLE.print("IP address:\t");
+  CONSOLE.println(WiFi.localIP());
     
+#endif
 }
 
 void loop(){
-/*
-  Serial.println("Read PZEM");  
 
+  CONSOLE.println("Read PZEM");  
+
+/*
   result = node.readInputRegisters(0x0000, 10);
   if (result == node.ku8MBSuccess) {
     U_PR = (node.getResponseBuffer(0x00)/10.0f);
@@ -89,11 +136,13 @@ void loop(){
   }
 */
 
-  Serial.print("Read PZEM,custom address:");
-  Serial.println(pzem.readAddress(), HEX);
+  //CONSOLE.print("Read PZEM,custom address:");
+  //CONSOLE.println(pzem.readAddress(), HEX);
 
-  Serial.print("Counter="); Serial.println(cnt);
+  CONSOLE.print("UpCounter="); CONSOLE.println(upcounter++);
+  CONSOLE.print("Counter="); CONSOLE.println(cnt);
 
+  rc=true;
   // Read the data from the sensor
   U_PR = pzem.voltage();
   I_PR = pzem.current();
@@ -104,23 +153,34 @@ void loop(){
 
   // Check if the data is valid
   if(isnan(U_PR)){
-    Serial.println("Error reading voltage");
-    U_PR=0;        
+    CONSOLE.println("Error reading voltage");
+    U_PR=0;
+    rc=false;
   } else if (isnan(I_PR)) {
-    Serial.println("Error reading current");
+    CONSOLE.println("Error reading current");
     I_PR=0;        
+    rc=false;
   } else if (isnan(P_PR)) {
-    Serial.println("Error reading power");
+    CONSOLE.println("Error reading power");
     P_PR=0;
+    rc=false;
   } else if (isnan(PPR)) {
-    Serial.println("Error reading energy");
+    CONSOLE.println("Error reading energy");
     PPR=0;
+    rc=false;
   } else if (isnan(PR_F)) {
-    Serial.println("Error reading frequency");
+    CONSOLE.println("Error reading frequency");
     PR_F=0;
+    rc=false;
   } else if (isnan(PR_PF)) {
-    Serial.println("Error reading power factor");
+    CONSOLE.println("Error reading power factor");
+    rc=false;
     PR_PF=0;
+  }
+
+  if (! rc){
+    delay(MAIN_DELAY);
+    return;
   }
 
   main_buffer[cnt][0]=U_PR;
@@ -138,24 +198,25 @@ void loop(){
   //dtostrf(PR_PF,1,1,str_pfactor);
   //sprintf(str_tmp,"%s,%s,%s,%s,%s,%s",str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor);
    
-  //Serial.print("U_PR: "); Serial.println(U_PR); // V
-  //Serial.print("I_PR: "); Serial.println(I_PR,3); // A
-  //Serial.print("P_PR: "); Serial.println(P_PR); // W
-  //Serial.print("PPR: "); Serial.println(PPR,3); // kWh
-  //Serial.print("PR_F: "); Serial.println(PR_F); // Hz
-  //Serial.print("PR_PF: "); Serial.println(PR_PF);
+  CONSOLE.print("U_PR: "); CONSOLE.println(U_PR); // V
+  CONSOLE.print("I_PR: "); CONSOLE.println(I_PR,3); // A
+  CONSOLE.print("P_PR: "); CONSOLE.println(P_PR); // W
+  CONSOLE.print("PPR: "); CONSOLE.println(PPR,3); // kWh
+  CONSOLE.print("PR_F: "); CONSOLE.println(PR_F); // Hz
+  CONSOLE.print("PR_PF: "); CONSOLE.println(PR_PF);
 
-  //Serial.println(str_tmp);
+  //CONSOLE.println(str_tmp);
 
   cnt++;
   if (cnt == MEASUREMENTS) {
-    Serial.println("Send data");
     cnt=0;     
+#ifdef WIFI_ENABLE
+    CONSOLE.println("Send data");
     //Check WiFi connection status
     if(WiFi.status() != WL_CONNECTED){
-      Serial.println("WiFi Disconnected");
+      CONSOLE.println("WiFi Disconnected");
     }else{
-      //Serial.println("HTTP client");
+      //CONSOLE.println("HTTP client");
       HTTPClient http;
 
       memset(str_post,0,sizeof(str_post));    
@@ -175,27 +236,28 @@ void loop(){
         }
       }
 
-      //Serial.println("http begin");
+      //CONSOLE.println("http begin");
       // Your Domain name with URL path or IP address with path
       http.begin(client, serverName);
   
       // If you need server authentication, insert user and password below
       //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
     
-      //Serial.println("http header");
+      //CONSOLE.println("http header");
       http.addHeader("Content-Type", "application/x-www-form-urlencoded");    
       //http.addHeader("Content-Type", "text/plain");
-      //Serial.println("http post");
+      //CONSOLE.println("http post");
       int httpResponseCode = http.POST(str_post);
      
-      //Serial.print("HTTP Response code: ");
-      //Serial.println(httpResponseCode);
-      Serial.println("Free resources");
+      //CONSOLE.print("HTTP Response code: ");
+      //CONSOLE.println(httpResponseCode);
+      CONSOLE.println("Free resources");
   
       // Free resources
       http.end();
     }
+#endif
   }
-  //Serial.println("End of loop, sleeping...");
-  delay(1000);
+  //CONSOLE.println("End of loop, sleeping...");
+  delay(MAIN_DELAY);
 }
