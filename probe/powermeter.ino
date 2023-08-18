@@ -22,6 +22,11 @@
 ModbusMaster node;
 */
 
+#include <U8x8lib.h>
+
+#define SCL_PIN SCL  // SCL pin of OLED. Default: D1 (ESP8266) or D22 (ESP32)
+#define SDA_PIN SDA  // SDA pin of OLED. Default: D2 (ESP8266) or D21 (ESP32)
+
 #define MEASUREMENTS 10
 #define MAIN_DELAY 1000
 
@@ -43,6 +48,8 @@ PZEM004Tv30 pzem(pzemSWSerial);
 
 #endif
 
+// U8X8 Display constructors: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
+U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(SCL_PIN, SDA_PIN, U8X8_PIN_NONE);
 
 #ifdef WIFI_ENABLE
 //WiFi data
@@ -80,6 +87,13 @@ void setup(){
   CONSOLE.begin(115200);
   delay(50);
   CONSOLE.println("Start serial");
+
+  // initialize OLED
+  u8x8.begin();
+  u8x8.setBusClock(400000);
+  u8x8.setFont(u8x8_font_7x14B_1x2_f);
+  u8x8.drawString(1, 0, "Booting...");
+
 /*
   pzem.begin(9600);
   CONSOLE.println("Start PZEM serial");
@@ -95,7 +109,7 @@ void setup(){
     }
   }
  
-#ifdef WIFI_ENABLE
+  #ifdef WIFI_ENABLE
 
   CONSOLE.print("Connecting to ");
   CONSOLE.print(ssid);
@@ -142,6 +156,11 @@ void loop(){
   CONSOLE.print("UpCounter="); CONSOLE.println(upcounter++);
   CONSOLE.print("Counter="); CONSOLE.println(cnt);
 
+  u8x8.clearDisplay();
+  u8x8.drawString(1, 0, "Measurement");
+  u8x8.setCursor(1,2);
+  u8x8.print(upcounter);
+
   rc=true;
   // Read the data from the sensor
   U_PR = pzem.voltage();
@@ -179,6 +198,8 @@ void loop(){
   }
 
   if (! rc){
+    u8x8.setCursor(1,2);
+    u8x8.print("Error!");
     delay(MAIN_DELAY);
     return;
   }
@@ -206,7 +227,23 @@ void loop(){
   CONSOLE.print("PR_PF: "); CONSOLE.println(PR_PF);
 
   //CONSOLE.println(str_tmp);
-
+  
+  u8x8.setCursor(1,2);
+  u8x8.print(P_PR,2);
+  u8x8.print("W (");
+  u8x8.print(PR_PF,2);
+  u8x8.print(")");
+  u8x8.setCursor(1,4);
+  u8x8.print(U_PR,1);
+  u8x8.print("V ");
+  u8x8.print(I_PR,3);
+  u8x8.print("A");
+  u8x8.setCursor(1,6);
+  u8x8.print(PR_F,1);
+  u8x8.print("Hz ");
+  u8x8.print(PPR,2);
+  //u8x8.print("");
+  
   cnt++;
   if (cnt == MEASUREMENTS) {
     cnt=0;     
