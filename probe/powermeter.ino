@@ -26,7 +26,6 @@ ModbusMaster node;
 
 #define SCL_PIN SCL  // SCL pin of OLED. Default: D1 (ESP8266) or D22 (ESP32)
 #define SDA_PIN SDA  // SDA pin of OLED. Default: D2 (ESP8266) or D21 (ESP32)
-
 #define MEASUREMENTS 10
 #define MAIN_DELAY 1000
 
@@ -90,8 +89,8 @@ void setup(){
 
   // initialize OLED
   u8x8.begin();
-  u8x8.setBusClock(400000);
-  u8x8.setFont(u8x8_font_7x14B_1x2_f);
+  // u8x8.setBusClock(400000);
+  u8x8.setFont(u8x8_font_8x13_1x2_f);
   u8x8.drawString(1, 0, "Booting...");
 
 /*
@@ -100,6 +99,8 @@ void setup(){
   node.begin(1, pzem);  // 1 = ID MODBUS
   CONSOLE.println("Start PZEM");
 */  
+
+  // clear PZEM energy counter
   PPR = pzem.energy();
   if ( ( !isnan(PPR) ) && ( PPR > 0 ) ) {
     if ( pzem.resetEnergy()) {
@@ -156,10 +157,7 @@ void loop(){
   CONSOLE.print("UpCounter="); CONSOLE.println(upcounter++);
   CONSOLE.print("Counter="); CONSOLE.println(cnt);
 
-  u8x8.clearDisplay();
-  u8x8.drawString(1, 0, "Measurement");
-  u8x8.setCursor(1,2);
-  u8x8.print(upcounter);
+  u8x8.drawString(0, 0, "  Measurement");
 
   rc=true;
   // Read the data from the sensor
@@ -198,7 +196,8 @@ void loop(){
   }
 
   if (! rc){
-    u8x8.setCursor(1,2);
+    u8x8.clearDisplay();
+    u8x8.setCursor(5,2);
     u8x8.print("Error!");
     delay(MAIN_DELAY);
     return;
