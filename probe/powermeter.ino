@@ -26,6 +26,8 @@ ModbusMaster node;
 
 #define SCL_PIN SCL  // SCL pin of OLED. Default: D1 (ESP8266) or D22 (ESP32)
 #define SDA_PIN SDA  // SDA pin of OLED. Default: D2 (ESP8266) or D21 (ESP32)
+#define LCD_COLS 16
+#define LCD_ROWS 4
 #define MEASUREMENTS 10
 #define MAIN_DELAY 1000
 
@@ -67,6 +69,8 @@ int i=0;
 double U_PR, I_PR, P_PR, PPR, PR_F, PR_PF;
 unsigned long upcounter=0;
 bool rc=false;
+uint8_t roll_cnt=0;
+char roller[] = { '-', '/', '|', '\\' };
 
 char str_voltage[8];
 char str_current[8];
@@ -78,6 +82,8 @@ char str_tmp[64];
 char str_post[4096];
 
 double main_buffer [MEASUREMENTS+1][6];
+char screen_cur[LCD_ROWS][LCD_COLS+1];
+char screen_prev[LCD_ROWS][LCD_COLS+1];
 
 void setup(){
 #ifdef PZEM004_NO_SWSERIAL
@@ -157,7 +163,7 @@ void loop(){
   CONSOLE.print("UpCounter="); CONSOLE.println(upcounter++);
   CONSOLE.print("Counter="); CONSOLE.println(cnt);
 
-  u8x8.drawString(0, 0, "  Measurement");
+  // u8x8.drawString(0, 0, "  Measurement");
 
   rc=true;
   // Read the data from the sensor
@@ -226,7 +232,8 @@ void loop(){
   CONSOLE.print("PR_PF: "); CONSOLE.println(PR_PF);
 
   //CONSOLE.println(str_tmp);
-  
+
+/*  
   u8x8.setCursor(1,2);
   u8x8.print(P_PR,2);
   u8x8.print("W (");
@@ -242,6 +249,10 @@ void loop(){
   u8x8.print("Hz ");
   u8x8.print(PPR,2);
   //u8x8.print("");
+*/
+
+  fill_screen();
+  draw_screen();
   
   cnt++;
   if (cnt == MEASUREMENTS) {
@@ -296,4 +307,36 @@ void loop(){
   }
   //CONSOLE.println("End of loop, sleeping...");
   delay(MAIN_DELAY);
+}
+
+void fill_screen(){
+  memset(screen_cur,0,sizeof(screen_cur));
+
+  strncpy(screen_cur[0]," Measurement  ",LCD_COLS);
+  strncat(screen_cur[0],roller+roll_cnt++,1);
+  
+  if (roll_cnt >= sizeof(roller)) roll_cnt=0;
+
+  dtostrf(P_PR,7,2,screen_cur[1]);
+  strncat(screen_cur[1],"W (",LCD_COLS);
+  dtostrf(PR_PF,4,2,screen_cur[1]+strlen(screen_cur[1]));
+  strncat(screen_cur[1],")",LCD_COLS);
+
+  dtostrf(U_PR,5,1,screen_cur[2]);
+  strncat(screen_cur[2],"V ",LCD_COLS);
+  dtostrf(I_PR,6,3,screen_cur[2]+strlen(screen_cur[2]));
+  strncat(screen_cur[2],"A",LCD_COLS);
+
+  dtostrf(PR_F,4,1,screen_cur[3]);
+  strncat(screen_cur[3],"Hz ",LCD_COLS);
+  dtostrf(PPR,6,3,screen_cur[3]+strlen(screen_cur[3]));
+
+}
+
+void draw_screen(){
+  for (uint8_t i=0; i<LCD_ROWS; i++){
+      if (strlen(screen_cur[i]) > 0){
+          u8x8.drawString(0,i+i,screen_cur[i]);
+      }
+  }
 }
