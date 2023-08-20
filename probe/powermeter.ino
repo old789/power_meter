@@ -98,7 +98,8 @@ void setup(){
   // u8x8.setBusClock(400000);
   u8x8.setFont(u8x8_font_8x13_1x2_f);
   u8x8.drawString(1, 0, "Booting...");
-
+  memset(screen_prev,0,sizeof(screen_prev));
+  
 /*
   pzem.begin(9600);
   CONSOLE.println("Start PZEM serial");
@@ -233,30 +234,12 @@ void loop(){
 
   //CONSOLE.println(str_tmp);
 
-/*  
-  u8x8.setCursor(1,2);
-  u8x8.print(P_PR,2);
-  u8x8.print("W (");
-  u8x8.print(PR_PF,2);
-  u8x8.print(")");
-  u8x8.setCursor(1,4);
-  u8x8.print(U_PR,1);
-  u8x8.print("V ");
-  u8x8.print(I_PR,3);
-  u8x8.print("A");
-  u8x8.setCursor(1,6);
-  u8x8.print(PR_F,1);
-  u8x8.print("Hz ");
-  u8x8.print(PPR,2);
-  //u8x8.print("");
-*/
-
   fill_screen();
   draw_screen();
   
   cnt++;
   if (cnt == MEASUREMENTS) {
-    cnt=0;     
+    cnt=0;
 #ifdef WIFI_ENABLE
     CONSOLE.println("Send data");
     //Check WiFi connection status
@@ -312,7 +295,7 @@ void loop(){
 void fill_screen(){
   memset(screen_cur,0,sizeof(screen_cur));
 
-  strncpy(screen_cur[0]," Measurement  ",LCD_COLS);
+  strncpy(screen_cur[0],"  Measurement  ",LCD_COLS);
   strncat(screen_cur[0],roller+roll_cnt++,1);
   
   if (roll_cnt >= sizeof(roller)) roll_cnt=0;
@@ -334,9 +317,38 @@ void fill_screen(){
 }
 
 void draw_screen(){
-  for (uint8_t i=0; i<LCD_ROWS; i++){
-      if (strlen(screen_cur[i]) > 0){
-          u8x8.drawString(0,i+i,screen_cur[i]);
-      }
+  if ( screen_prev[0][0] == 0 ) {
+    // draw a full screen
+    for (uint8_t i=0; i<LCD_ROWS; i++){
+       if (strlen(screen_cur[i]) > 0){
+            u8x8.drawString(0,i+i,screen_cur[i]);
+       } 
+    }
+    memcpy(screen_prev,screen_cur,sizeof(screen_prev));
+    return;
   }
+  
+  for ( uint8_t i=0; i < LCD_ROWS; i++ ){
+    for ( uint8_t j=0; j < LCD_COLS; j++ ){
+      if ( screen_cur[i][j] != screen_prev[i][j] ) {
+        // update a symbol on the screen
+        if ( screen_cur[i][j] != 0 ) {
+          screen_prev[i][j] = screen_cur[i][j];
+          u8x8.drawGlyph(j,i+i,screen_cur[i][j]);
+        } else {
+          // clear the rest of the string 
+          for ( uint8_t k=j; k < LCD_COLS; k++ ) {
+            if ( screen_prev[i][k] == 0 ) {
+              break;
+            } else {
+              if ( screen_prev[i][k] != 32 ) {
+                u8x8.drawGlyph(k,i+i,' ');
+                screen_prev[i][k]=0;
+              }
+            }
+          }
+        }
+      }
+    }
+  } 
 }
