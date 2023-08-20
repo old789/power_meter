@@ -3,7 +3,7 @@
 
 //#define WIFI_ENABLE
 
-#include <PZEM004Tv30.h>
+#include <PZEM004Tv30.h>  // https://github.com/mandulaj/PZEM-004T-v30
 
 #ifdef WIFI_ENABLE
 #include <ESP8266WiFi.h>
@@ -15,7 +15,7 @@
 #include <SoftwareSerial.h>
 #endif
 
-#include <U8x8lib.h>
+#include <U8x8lib.h>    // https://github.com/olikraus/u8g2
 
 #define SCL_PIN SCL  // SCL pin of OLED. Default: D1 (ESP8266) or D22 (ESP32)
 #define SDA_PIN SDA  // SDA pin of OLED. Default: D2 (ESP8266) or D21 (ESP32)
@@ -57,7 +57,7 @@ WiFiClient client;
 
 #endif
 
-double U_PR, I_PR, P_PR, PPR, PR_F, PR_PF;
+double voltage, current, power, energy, freq, pwfactor;
 unsigned long upcounter=0;
 bool rc=false;
 uint8_t roll_cnt=0;
@@ -95,16 +95,9 @@ void setup(){
   u8x8.drawString(1, 0, "Booting...");
   memset(screen_prev,0,sizeof(screen_prev));
   
-/*
-  pzem.begin(9600);
-  CONSOLE.println("Start PZEM serial");
-  node.begin(1, pzem);  // 1 = ID MODBUS
-  CONSOLE.println("Start PZEM");
-*/  
-
   // clear PZEM energy counter
-  PPR = pzem.energy();
-  if ( ( !isnan(PPR) ) && ( PPR > 0 ) ) {
+  energy = pzem.energy();
+  if ( ( !isnan(energy) ) && ( energy > 0 ) ) {
     if ( pzem.resetEnergy()) {
       CONSOLE.println("Reset energy counter");
     }else{
@@ -139,58 +132,47 @@ void setup(){
 
 void loop(){
 
-  CONSOLE.print("UpCounter="); CONSOLE.println(upcounter++);
+  CONSOLE.println("\n");  
+  CONSOLE.print("Round "); CONSOLE.println(upcounter++);
   CONSOLE.println("Read PZEM");  
-
-/*
-  result = node.readInputRegisters(0x0000, 10);
-  if (result == node.ku8MBSuccess) {
-    U_PR = (node.getResponseBuffer(0x00)/10.0f);
-    I_PR = (node.getResponseBuffer(0x01)/1000.000f);
-    P_PR = (node.getResponseBuffer(0x03)/10.0f);
-    PPR = (node.getResponseBuffer(0x05)/1000.0f);
-    PR_F = (node.getResponseBuffer(0x07)/10.0f);
-    PR_PF = (node.getResponseBuffer(0x08)/100.0f);
-  }
-*/
 
   //CONSOLE.print("Read PZEM,custom address:");
   //CONSOLE.println(pzem.readAddress(), HEX);
 
   // Read the data from the sensor
-  U_PR = pzem.voltage();
-  I_PR = pzem.current();
-  P_PR = pzem.power();
-  PPR = pzem.energy();
-  PR_F = pzem.frequency();
-  PR_PF = pzem.pf();
+  voltage = pzem.voltage();
+  current = pzem.current();
+  power = pzem.power();
+  energy = pzem.energy();
+  freq = pzem.frequency();
+  pwfactor = pzem.pf();
 
   rc=true;
   // Check if the data is valid
-  if(isnan(U_PR)){
+  if(isnan(voltage)){
     CONSOLE.println("Error reading voltage");
-    U_PR=0;
+    voltage=0;
     rc=false;
-  } else if (isnan(I_PR)) {
+  } else if (isnan(current)) {
     CONSOLE.println("Error reading current");
-    I_PR=0;        
+    current=0;        
     rc=false;
-  } else if (isnan(P_PR)) {
+  } else if (isnan(power)) {
     CONSOLE.println("Error reading power");
-    P_PR=0;
+    power=0;
     rc=false;
-  } else if (isnan(PPR)) {
+  } else if (isnan(energy)) {
     CONSOLE.println("Error reading energy");
-    PPR=0;
+    energy=0;
     rc=false;
-  } else if (isnan(PR_F)) {
+  } else if (isnan(freq)) {
     CONSOLE.println("Error reading frequency");
-    PR_F=0;
+    freq=0;
     rc=false;
-  } else if (isnan(PR_PF)) {
+  } else if (isnan(pwfactor)) {
     CONSOLE.println("Error reading power factor");
     rc=false;
-    PR_PF=0;
+    pwfactor=0;
   }
 
   if (! rc){
@@ -202,24 +184,24 @@ void loop(){
     return;
   }
 
-  CONSOLE.print("U_PR: "); CONSOLE.println(U_PR); // V
-  CONSOLE.print("I_PR: "); CONSOLE.println(I_PR,3); // A
-  CONSOLE.print("P_PR: "); CONSOLE.println(P_PR); // W
-  CONSOLE.print("PPR: "); CONSOLE.println(PPR,3); // kWh
-  CONSOLE.print("PR_F: "); CONSOLE.println(PR_F); // Hz
-  CONSOLE.print("PR_PF: "); CONSOLE.println(PR_PF);
+  CONSOLE.print("Voltage: "); CONSOLE.println(voltage); // V
+  CONSOLE.print("Current: "); CONSOLE.println(current,3); // A
+  CONSOLE.print("Power: "); CONSOLE.println(power); // W
+  CONSOLE.print("Energy: "); CONSOLE.println(energy,3); // kWh
+  CONSOLE.print("Frequency: "); CONSOLE.println(freq); // Hz
+  CONSOLE.print("PowerFactor: "); CONSOLE.println(pwfactor);
 
   fill_screen();
   draw_screen();
   
 #ifdef WIFI_ENABLE
   CONSOLE.print("Counter="); CONSOLE.println(cnt);
-  main_buffer[cnt][0]=U_PR;
-  main_buffer[cnt][1]=I_PR;
-  main_buffer[cnt][2]=P_PR;
-  main_buffer[cnt][3]=PPR;
-  main_buffer[cnt][4]=PR_F;
-  main_buffer[cnt][5]=PR_PF;
+  main_buffer[cnt][0]=voltage;
+  main_buffer[cnt][1]=current;
+  main_buffer[cnt][2]=power;
+  main_buffer[cnt][3]=energy;
+  main_buffer[cnt][4]=freq;
+  main_buffer[cnt][5]=pwfactor;
   cnt++;
   if (cnt == MEASUREMENTS) {
     cnt=0;
@@ -282,19 +264,19 @@ void fill_screen(){
   
   if ( roll_cnt >= sizeof(roller) ) roll_cnt=0;
 
-  dtostrf(P_PR,7,2,screen_cur[1]);
+  dtostrf(power,7,2,screen_cur[1]);
   strncat(screen_cur[1],"W (",LCD_COLS);
-  dtostrf(PR_PF,4,2,screen_cur[1]+strlen(screen_cur[1]));
+  dtostrf(pwfactor,4,2,screen_cur[1]+strlen(screen_cur[1]));
   strncat(screen_cur[1],")",LCD_COLS);
 
-  dtostrf(U_PR,5,1,screen_cur[2]);
+  dtostrf(voltage,5,1,screen_cur[2]);
   strncat(screen_cur[2],"V ",LCD_COLS);
-  dtostrf(I_PR,6,3,screen_cur[2]+strlen(screen_cur[2]));
+  dtostrf(current,6,3,screen_cur[2]+strlen(screen_cur[2]));
   strncat(screen_cur[2],"A",LCD_COLS);
 
-  dtostrf(PR_F,4,1,screen_cur[3]);
+  dtostrf(freq,4,1,screen_cur[3]);
   strncat(screen_cur[3],"Hz ",LCD_COLS);
-  dtostrf(PPR,6,3,screen_cur[3]+strlen(screen_cur[3]));
+  dtostrf(energy,6,3,screen_cur[3]+strlen(screen_cur[3]));
 }
 
 void draw_screen(){
