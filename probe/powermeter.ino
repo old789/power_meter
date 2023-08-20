@@ -3,7 +3,6 @@
 
 //#define WIFI_ENABLE
 
-//#include <ModbusMaster.h>  // not use with PZEM004Tv30
 #include <PZEM004Tv30.h>
 
 #ifdef WIFI_ENABLE
@@ -13,14 +12,8 @@
 #endif
 
 #ifndef PZEM004_NO_SWSERIAL
-#include <SoftwareSerial.h> // ( NODEMCU ESP8266 )
+#include <SoftwareSerial.h>
 #endif
-
-/*
-/SoftwareSerial pzem(D5,D6); // (RX,TX) connect to TX,RX of PZEM for NodeMCU
-#include <ModbusMaster.h>
-ModbusMaster node;
-*/
 
 #include <U8x8lib.h>
 
@@ -64,8 +57,6 @@ WiFiClient client;
 
 #endif
 
-int cnt=0;
-int i=0;
 double U_PR, I_PR, P_PR, PPR, PR_F, PR_PF;
 unsigned long upcounter=0;
 bool rc=false;
@@ -79,11 +70,15 @@ char str_energy[16];
 char str_freq[8];
 char str_pfactor[8];
 char str_tmp[64];
-char str_post[4096];
 
-double main_buffer [MEASUREMENTS+1][6];
 char screen_cur[LCD_ROWS][LCD_COLS+1];
 char screen_prev[LCD_ROWS][LCD_COLS+1];
+
+#ifdef WIFI_ENABLE
+int cnt=0;
+double main_buffer [MEASUREMENTS+1][6];
+char str_post[4096];
+#endif
 
 void setup(){
 #ifdef PZEM004_NO_SWSERIAL
@@ -144,6 +139,7 @@ void setup(){
 
 void loop(){
 
+  CONSOLE.print("UpCounter="); CONSOLE.println(upcounter++);
   CONSOLE.println("Read PZEM");  
 
 /*
@@ -161,12 +157,6 @@ void loop(){
   //CONSOLE.print("Read PZEM,custom address:");
   //CONSOLE.println(pzem.readAddress(), HEX);
 
-  CONSOLE.print("UpCounter="); CONSOLE.println(upcounter++);
-  CONSOLE.print("Counter="); CONSOLE.println(cnt);
-
-  // u8x8.drawString(0, 0, "  Measurement");
-
-  rc=true;
   // Read the data from the sensor
   U_PR = pzem.voltage();
   I_PR = pzem.current();
@@ -175,6 +165,7 @@ void loop(){
   PR_F = pzem.frequency();
   PR_PF = pzem.pf();
 
+  rc=true;
   // Check if the data is valid
   if(isnan(U_PR)){
     CONSOLE.println("Error reading voltage");
@@ -206,25 +197,11 @@ void loop(){
     u8x8.clearDisplay();
     u8x8.setCursor(5,2);
     u8x8.print("Error!");
+    memset(screen_prev,0,sizeof(screen_prev));
     delay(MAIN_DELAY);
     return;
   }
 
-  main_buffer[cnt][0]=U_PR;
-  main_buffer[cnt][1]=I_PR;
-  main_buffer[cnt][2]=P_PR;
-  main_buffer[cnt][3]=PPR;
-  main_buffer[cnt][4]=PR_F;
-  main_buffer[cnt][5]=PR_PF;
-        
-  //dtostrf(U_PR,1,1,str_voltage);
-  //dtostrf(I_PR,1,3,str_current);
-  //dtostrf(P_PR,1,1,str_power);
-  //dtostrf(PPR,1,1,str_energy);
-  //dtostrf(PR_F,1,1,str_freq);
-  //dtostrf(PR_PF,1,1,str_pfactor);
-  //sprintf(str_tmp,"%s,%s,%s,%s,%s,%s",str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor);
-   
   CONSOLE.print("U_PR: "); CONSOLE.println(U_PR); // V
   CONSOLE.print("I_PR: "); CONSOLE.println(I_PR,3); // A
   CONSOLE.print("P_PR: "); CONSOLE.println(P_PR); // W
@@ -232,15 +209,20 @@ void loop(){
   CONSOLE.print("PR_F: "); CONSOLE.println(PR_F); // Hz
   CONSOLE.print("PR_PF: "); CONSOLE.println(PR_PF);
 
-  //CONSOLE.println(str_tmp);
-
   fill_screen();
   draw_screen();
   
+#ifdef WIFI_ENABLE
+  CONSOLE.print("Counter="); CONSOLE.println(cnt);
+  main_buffer[cnt][0]=U_PR;
+  main_buffer[cnt][1]=I_PR;
+  main_buffer[cnt][2]=P_PR;
+  main_buffer[cnt][3]=PPR;
+  main_buffer[cnt][4]=PR_F;
+  main_buffer[cnt][5]=PR_PF;
   cnt++;
   if (cnt == MEASUREMENTS) {
     cnt=0;
-#ifdef WIFI_ENABLE
     CONSOLE.println("Send data");
     //Check WiFi connection status
     if(WiFi.status() != WL_CONNECTED){
@@ -286,8 +268,8 @@ void loop(){
       // Free resources
       http.end();
     }
-#endif
   }
+#endif
   //CONSOLE.println("End of loop, sleeping...");
   delay(MAIN_DELAY);
 }
@@ -298,7 +280,7 @@ void fill_screen(){
   strncpy(screen_cur[0],"  Measurement  ",LCD_COLS);
   strncat(screen_cur[0],roller+roll_cnt++,1);
   
-  if (roll_cnt >= sizeof(roller)) roll_cnt=0;
+  if ( roll_cnt >= sizeof(roller) ) roll_cnt=0;
 
   dtostrf(P_PR,7,2,screen_cur[1]);
   strncat(screen_cur[1],"W (",LCD_COLS);
@@ -313,7 +295,6 @@ void fill_screen(){
   dtostrf(PR_F,4,1,screen_cur[3]);
   strncat(screen_cur[3],"Hz ",LCD_COLS);
   dtostrf(PPR,6,3,screen_cur[3]+strlen(screen_cur[3]));
-
 }
 
 void draw_screen(){
