@@ -81,6 +81,8 @@ char str_post[4096];
 #endif
 
 void setup(){
+ //pinMode(5, INPUT_PULLUP); 
+ //pinMode(6, INPUT_PULLUP); 
 #ifdef PZEM004_NO_SWSERIAL
   Serial.swap();
 #endif
@@ -126,7 +128,9 @@ void setup(){
   CONSOLE.println("Connection established!");  
   CONSOLE.print("IP address:\t");
   CONSOLE.println(WiFi.localIP());
-    
+  
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
 #endif
 }
 
@@ -134,62 +138,15 @@ void loop(){
 
   CONSOLE.println("\n");  
   CONSOLE.print("Round "); CONSOLE.println(upcounter++);
-  CONSOLE.println("Read PZEM");  
-
-  //CONSOLE.print("Read PZEM,custom address:");
-  //CONSOLE.println(pzem.readAddress(), HEX);
-
-  // Read the data from the sensor
-  voltage = pzem.voltage();
-  current = pzem.current();
-  power = pzem.power();
-  energy = pzem.energy();
-  freq = pzem.frequency();
-  pwfactor = pzem.pf();
-
-  rc=true;
-  // Check if the data is valid
-  if(isnan(voltage)){
-    CONSOLE.println("Error reading voltage");
-    voltage=0;
-    rc=false;
-  } else if (isnan(current)) {
-    CONSOLE.println("Error reading current");
-    current=0;        
-    rc=false;
-  } else if (isnan(power)) {
-    CONSOLE.println("Error reading power");
-    power=0;
-    rc=false;
-  } else if (isnan(energy)) {
-    CONSOLE.println("Error reading energy");
-    energy=0;
-    rc=false;
-  } else if (isnan(freq)) {
-    CONSOLE.println("Error reading frequency");
-    freq=0;
-    rc=false;
-  } else if (isnan(pwfactor)) {
-    CONSOLE.println("Error reading power factor");
-    rc=false;
-    pwfactor=0;
-  }
-
+  
+  rc = read_pzem();
   if (! rc){
     u8x8.clearDisplay();
-    u8x8.setCursor(5,2);
-    u8x8.print("Error!");
+    u8x8.drawString(1,2,"!Sensor Error!");
     memset(screen_prev,0,sizeof(screen_prev));
     delay(MAIN_DELAY);
     return;
   }
-
-  CONSOLE.print("Voltage: "); CONSOLE.println(voltage); // V
-  CONSOLE.print("Current: "); CONSOLE.println(current,3); // A
-  CONSOLE.print("Power: "); CONSOLE.println(power); // W
-  CONSOLE.print("Energy: "); CONSOLE.println(energy,3); // kWh
-  CONSOLE.print("Frequency: "); CONSOLE.println(freq); // Hz
-  CONSOLE.print("PowerFactor: "); CONSOLE.println(pwfactor);
 
   fill_screen();
   draw_screen();
@@ -277,6 +234,60 @@ void fill_screen(){
   dtostrf(freq,4,1,screen_cur[3]);
   strncat(screen_cur[3],"Hz ",LCD_COLS);
   dtostrf(energy,6,3,screen_cur[3]+strlen(screen_cur[3]));
+}
+
+bool read_pzem(){
+  CONSOLE.println("Read PZEM");  
+
+  //CONSOLE.print("Read PZEM,custom address:");
+  //CONSOLE.println(pzem.readAddress(), HEX);
+
+  // Read the data from the sensor
+
+  voltage = pzem.voltage();
+  if(isnan(voltage)){
+    CONSOLE.println("Error reading voltage");
+    return(false);
+  }
+  
+  current = pzem.current();
+  if (isnan(current)) {
+    CONSOLE.println("Error reading current");  
+    return(false);
+  } 
+  
+  power = pzem.power();
+  if (isnan(power)) {
+    CONSOLE.println("Error reading power");
+    return(false);
+  }
+
+  energy = pzem.energy();
+  if (isnan(energy)) {
+    CONSOLE.println("Error reading energy");
+    return(false);
+  } 
+
+  freq = pzem.frequency();
+  if (isnan(freq)) {
+    CONSOLE.println("Error reading frequency");
+    return(false);
+  } 
+
+  pwfactor = pzem.pf();
+  if (isnan(pwfactor)) {
+    CONSOLE.println("Error reading power factor");
+    return(false);
+  }
+
+  CONSOLE.print("Voltage: "); CONSOLE.println(voltage); // V
+  CONSOLE.print("Current: "); CONSOLE.println(current,3); // A
+  CONSOLE.print("Power: "); CONSOLE.println(power); // W
+  CONSOLE.print("Energy: "); CONSOLE.println(energy,3); // kWh
+  CONSOLE.print("Frequency: "); CONSOLE.println(freq); // Hz
+  CONSOLE.print("PowerFactor: "); CONSOLE.println(pwfactor);
+
+  return(true);
 }
 
 void draw_screen(){
