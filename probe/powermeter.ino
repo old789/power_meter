@@ -1,15 +1,10 @@
 
 #define PZEM004_NO_SWSERIAL
-
-//#define WIFI_ENABLE
-
 #include <PZEM004Tv30.h>  // https://github.com/mandulaj/PZEM-004T-v30
 
-#ifdef WIFI_ENABLE
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266HTTPClient.h>
-#endif
 
 #ifndef PZEM004_NO_SWSERIAL
 #include <SoftwareSerial.h>
@@ -45,7 +40,6 @@ PZEM004Tv30 pzem(pzemSWSerial);
 // U8X8 Display constructors: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(SCL_PIN, SDA_PIN, U8X8_PIN_NONE);
 
-#ifdef WIFI_ENABLE
 //WiFi data
 char ssid[] = "SSID"; //WiFi Credential
 char pass[] = "PASSW"; //WiFi Password
@@ -55,13 +49,12 @@ const char* serverName = "http://10.10.10.10/pwr/pwrm.php";
 
 WiFiClient client;
 
-#endif
-
 double voltage, current, power, energy, freq, pwfactor;
 unsigned long upcounter=0;
 bool rc=false;
 uint8_t roll_cnt=0;
 char roller[] = { '-', '/', '|', '\\' };
+bool enable_collect_data=false;
 
 char str_voltage[8];
 char str_current[8];
@@ -74,15 +67,12 @@ char str_tmp[64];
 char screen_cur[LCD_ROWS][LCD_COLS+1];
 char screen_prev[LCD_ROWS][LCD_COLS+1];
 
-#ifdef WIFI_ENABLE
 int cnt=0;
-double main_buffer [MEASUREMENTS+1][6];
 char str_post[4096];
-#endif
 
 void setup(){
- //pinMode(5, INPUT_PULLUP); 
- //pinMode(6, INPUT_PULLUP); 
+ pinMode(D5, INPUT_PULLUP); 
+ pinMode(D6, INPUT_PULLUP); 
 #ifdef PZEM004_NO_SWSERIAL
   Serial.swap();
 #endif
@@ -90,6 +80,10 @@ void setup(){
   delay(50);
   CONSOLE.println("Start serial");
 
+  // if ( !digitalRead(D6) ){
+    enable_collect_data=true;
+  // }
+  
   // initialize OLED
   u8x8.begin();
   // u8x8.setBusClock(400000);
@@ -107,31 +101,12 @@ void setup(){
     }
   }
  
-  #ifdef WIFI_ENABLE
-
-  CONSOLE.print("Connecting to ");
-  CONSOLE.print(ssid);
-  CONSOLE.println(" ...");
-  
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pass);             // Connect to the network
-
-  CONSOLE.println("Is connect?..");
-
-  int i = 0;
-  while (WiFi.status() != WL_CONNECTED) { // Wait for the Wi-Fi to connect
-    delay(1000);
-    CONSOLE.print(++i); CONSOLE.print(' ');
+  if (enable_collect_data) {
+    wifi_init();
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
+    memset(str_post,0,sizeof(str_post));
   }
-
-  CONSOLE.println('\n');
-  CONSOLE.println("Connection established!");  
-  CONSOLE.print("IP address:\t");
-  CONSOLE.println(WiFi.localIP());
-  
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
-#endif
 }
 
 void loop(){
@@ -151,66 +126,92 @@ void loop(){
   fill_screen();
   draw_screen();
   
-#ifdef WIFI_ENABLE
-  CONSOLE.print("Counter="); CONSOLE.println(cnt);
-  main_buffer[cnt][0]=voltage;
-  main_buffer[cnt][1]=current;
-  main_buffer[cnt][2]=power;
-  main_buffer[cnt][3]=energy;
-  main_buffer[cnt][4]=freq;
-  main_buffer[cnt][5]=pwfactor;
-  cnt++;
-  if (cnt == MEASUREMENTS) {
-    cnt=0;
-    CONSOLE.println("Send data");
-    //Check WiFi connection status
-    if(WiFi.status() != WL_CONNECTED){
-      CONSOLE.println("WiFi Disconnected");
-    }else{
-      //CONSOLE.println("HTTP client");
-      HTTPClient http;
-
-      memset(str_post,0,sizeof(str_post));    
-    
-      for( i=0; i<MEASUREMENTS; i++ ){
-        dtostrf(main_buffer[i][0],1,1,str_voltage);
-        dtostrf(main_buffer[i][1],1,3,str_current);
-        dtostrf(main_buffer[i][2],1,1,str_power);
-        dtostrf(main_buffer[i][3],1,1,str_energy);
-        dtostrf(main_buffer[i][4],1,1,str_freq);
-        dtostrf(main_buffer[i][5],1,1,str_pfactor);
-        sprintf(str_tmp,"m%u=%s,%s,%s,%s,%s,%s&",i,str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor);
-        if (i > 0){
-          strncat(str_post,str_tmp,sizeof(str_post)-1);
-        }else{
-          strncpy(str_post,str_tmp,sizeof(str_post)-1);
-        }
-      }
-
-      //CONSOLE.println("http begin");
-      // Your Domain name with URL path or IP address with path
-      http.begin(client, serverName);
-  
-      // If you need server authentication, insert user and password below
-      //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-    
-      //CONSOLE.println("http header");
-      http.addHeader("Content-Type", "application/x-www-form-urlencoded");    
-      //http.addHeader("Content-Type", "text/plain");
-      //CONSOLE.println("http post");
-      int httpResponseCode = http.POST(str_post);
-     
-      //CONSOLE.print("HTTP Response code: ");
-      //CONSOLE.println(httpResponseCode);
-      CONSOLE.println("Free resources");
-  
-      // Free resources
-      http.end();
-    }
+  if ( enable_collect_data ) {
+    collect_data();
   }
-#endif
+  
   //CONSOLE.println("End of loop, sleeping...");
   delay(MAIN_DELAY);
+}
+
+void collect_data(){
+  CONSOLE.print("Counter="); CONSOLE.println(cnt);
+  
+  dtostrf(voltage,1,1,str_voltage);
+  dtostrf(current,1,3,str_current);
+  dtostrf(power,1,1,str_power);
+  dtostrf(energy,1,1,str_energy);
+  dtostrf(freq,1,1,str_freq);
+  dtostrf(pwfactor,1,1,str_pfactor);
+  sprintf(str_tmp,"m%u=%s,%s,%s,%s,%s,%s&",cnt,str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor);
+  if ( strlen(str_post) + strlen(str_tmp) >= sizeof(str_post)-1 ) {
+     CONSOLE.println("str_post is too short");
+     cnt = MEASUREMENTS;
+  }else{
+    if (cnt > 0){
+      strncat(str_post,str_tmp,sizeof(str_post)-1);
+    }else{
+      strncpy(str_post,str_tmp,sizeof(str_post)-1);
+    }
+  }
+
+  if (++cnt >= MEASUREMENTS) {
+    send_data();
+    cnt=0;
+    memset(str_post,0,sizeof(str_post));
+  }
+}
+
+void send_data(){
+  CONSOLE.println("Send data");
+  //Check WiFi connection status
+  if(WiFi.status() != WL_CONNECTED){
+    CONSOLE.println("WiFi Disconnected");
+    return;
+  }
+  //CONSOLE.println("HTTP client");
+  HTTPClient http;
+
+  //CONSOLE.println("http begin");
+  // Your Domain name with URL path or IP address with path
+  http.begin(client, serverName);
+  
+  // If you need server authentication, insert user and password below
+  //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
+    
+  //CONSOLE.println("http header");
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");    
+  //http.addHeader("Content-Type", "text/plain");
+  //CONSOLE.println("http post");
+  int httpResponseCode = http.POST(str_post);
+     
+  CONSOLE.print("HTTP Response code: "); CONSOLE.println(httpResponseCode);
+  CONSOLE.println("Free resources");
+  
+  // Free resources
+  http.end();
+}
+
+void wifi_init(){
+  CONSOLE.print("Connecting to ");
+  CONSOLE.print(ssid);
+  CONSOLE.println(" ...");
+  
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, pass);             // Connect to the network
+
+  CONSOLE.println("Is connect?..");
+
+  uint8_t i = 0;
+  while (WiFi.status() != WL_CONNECTED) { // Wait for the Wi-Fi to connect
+    delay(1000);
+    CONSOLE.print(++i); CONSOLE.print(' ');
+  }
+
+  CONSOLE.println('\n');
+  CONSOLE.println("Connection established!");  
+  CONSOLE.print("IP address:\t");
+  CONSOLE.println(WiFi.localIP());
 }
 
 void fill_screen(){
