@@ -16,7 +16,7 @@
 #define SDA_PIN SDA  // SDA pin of OLED. Default: D2 (ESP8266) or D21 (ESP32)
 #define LCD_COLS 16
 #define LCD_ROWS 4
-#define MEASUREMENTS 10
+#define MEASUREMENTS 30
 #define MAIN_DELAY 1000
 
 #ifdef PZEM004_NO_SWSERIAL
@@ -68,7 +68,7 @@ char screen_cur[LCD_ROWS][LCD_COLS+1];
 char screen_prev[LCD_ROWS][LCD_COLS+1];
 
 int cnt=0;
-char str_post[4096];
+char str_post[2048];
 
 void setup(){
  pinMode(D5, INPUT_PULLUP); 
@@ -140,10 +140,10 @@ void collect_data(){
   dtostrf(voltage,1,1,str_voltage);
   dtostrf(current,1,3,str_current);
   dtostrf(power,1,1,str_power);
-  dtostrf(energy,1,1,str_energy);
+  dtostrf(energy,1,3,str_energy);
   dtostrf(freq,1,1,str_freq);
-  dtostrf(pwfactor,1,1,str_pfactor);
-  sprintf(str_tmp,"m%u=%s,%s,%s,%s,%s,%s&",cnt,str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor);
+  dtostrf(pwfactor,1,2,str_pfactor);
+  sprintf(str_tmp,"m%u=%s,%s,%s,%s,%s,%s,%u&",cnt,str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor,millis());
   if ( strlen(str_post) + strlen(str_tmp) >= sizeof(str_post)-1 ) {
      CONSOLE.println("str_post is too short");
      cnt = MEASUREMENTS;
@@ -155,6 +155,8 @@ void collect_data(){
     }
   }
 
+  CONSOLE.print("Length of buffer="); CONSOLE.println(strlen(str_post));
+  
   if (++cnt >= MEASUREMENTS) {
     send_data();
     cnt=0;
