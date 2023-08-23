@@ -113,21 +113,18 @@ void loop(){
   CONSOLE.print("Round "); CONSOLE.println(upcounter++);
   
   rc = read_pzem();
-  if (! rc){
+  if (rc){
+    fill_screen();
+    draw_screen();
+    if ( enable_collect_data ) {
+      collect_data();
+    }
+  }else{
     u8x8.clearDisplay();
     u8x8.drawString(1,2,"!Sensor Error!");
     memset(screen_prev,0,sizeof(screen_prev));
-    delay(MAIN_DELAY);
-    return;
   }
 
-  fill_screen();
-  draw_screen();
-  
-  if ( enable_collect_data ) {
-    collect_data();
-  }
-  
   //CONSOLE.println("End of loop, sleeping...");
   delay(MAIN_DELAY);
 }
