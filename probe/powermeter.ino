@@ -120,9 +120,14 @@ void loop(){
       collect_data();
     }
   }else{
-    u8x8.clearDisplay();
-    u8x8.drawString(1,2,"!Sensor Error!");
-    memset(screen_prev,0,sizeof(screen_prev));
+    memset(screen_cur,0,sizeof(screen_cur));
+    strncpy(screen_cur[1]," !Sensor Error!",LCD_COLS);
+    if ( enable_collect_data && ( uint8_t(str_post[0]) != 0 ) ) {
+      send_data();
+      cnt=0;
+    }else{
+      draw_screen();
+    }
   }
 
   //CONSOLE.println("End of loop, sleeping...");
@@ -155,7 +160,6 @@ void collect_data(){
   if (++cnt >= MEASUREMENTS) {
     send_data();
     cnt=0;
-    memset(str_post,0,sizeof(str_post));
   }
 }
 
@@ -193,6 +197,7 @@ void send_data(){
   
   // Free resources
   http.end();
+  memset(str_post,0,sizeof(str_post));
 }
 
 void wifi_init(){
