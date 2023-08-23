@@ -78,7 +78,7 @@ void setup(){
 #endif
   CONSOLE.begin(115200);
   delay(50);
-  CONSOLE.println("Start serial");
+  CONSOLE.println(".\nStart serial");
 
   // if ( !digitalRead(D6) ){
     enable_collect_data=true;
@@ -103,8 +103,6 @@ void setup(){
  
   if (enable_collect_data) {
     wifi_init();
-    WiFi.setAutoReconnect(true);
-    WiFi.persistent(true);
     memset(str_post,0,sizeof(str_post));
   }
 }
@@ -166,10 +164,14 @@ void collect_data(){
 
 void send_data(){
   CONSOLE.println("Send data");
+  strncpy(screen_cur[0],"Sending data...",LCD_COLS);
+  draw_screen();
   //Check WiFi connection status
   if(WiFi.status() != WL_CONNECTED){
     CONSOLE.println("WiFi Disconnected");
-    return;
+    u8x8.clearDisplay();
+    memset(screen_prev,0,sizeof(screen_prev));
+    wifi_init();
   }
   //CONSOLE.println("HTTP client");
   HTTPClient http;
@@ -186,7 +188,9 @@ void send_data(){
   //http.addHeader("Content-Type", "text/plain");
   //CONSOLE.println("http post");
   int httpResponseCode = http.POST(str_post);
-     
+  sprintf(screen_cur[0],"Data sent: %d",httpResponseCode);
+  draw_screen();
+  
   CONSOLE.print("HTTP Response code: "); CONSOLE.println(httpResponseCode);
   CONSOLE.println("Free resources");
   
@@ -200,20 +204,33 @@ void wifi_init(){
   CONSOLE.println(" ...");
   
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pass);             // Connect to the network
+  WiFi.begin(ssid, pass);             // Connect to the network 
 
-  CONSOLE.println("Is connect?..");
+  u8x8.drawString(0,2,"WiFi connecting");
 
-  uint8_t i = 0;
+  uint16_t i = 0;
   while (WiFi.status() != WL_CONNECTED) { // Wait for the Wi-Fi to connect
+    u8x8.drawGlyph(7,4,uint8_t(roller[roll_cnt++]));
+    if ( roll_cnt >= sizeof(roller) ) roll_cnt=0;
     delay(1000);
-    CONSOLE.print(++i); CONSOLE.print(' ');
+    i++;
+    CONSOLE.print(i); CONSOLE.print(' ');
+    if ( i > 300 ) {  // if don't connect then restart
+      u8x8.clearDisplay();
+      u8x8.drawString(2,2,"WiFi timeout");
+      u8x8.drawString(3,4,"Restarting");
+      delay(3000);
+      ESP.restart();
+    }
   }
+  
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
 
   CONSOLE.println('\n');
   CONSOLE.println("Connection established!");  
-  CONSOLE.print("IP address:\t");
-  CONSOLE.println(WiFi.localIP());
+  CONSOLE.print("IP address: ");CONSOLE.println(WiFi.localIP());
+  CONSOLE.print("RSSI: ");CONSOLE.println(WiFi.RSSI());
 }
 
 void fill_screen(){
