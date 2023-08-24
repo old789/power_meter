@@ -1,3 +1,14 @@
+#define DEBUG_SERIAL  // because just "DEBUG" defined in PZEM004Tv30.h
+//#define DEBUG_SENSOR
+//#define DBG_WIFI    // because "DEBUG_WIFI" deifined in a WiFiClient library 
+
+#if defined ( DEBUG_SENSOR ) && not defined ( DEBUG_SERIAL )
+#define DEBUG_SERIAL
+#endif
+
+#if defined ( DBG_WIFI ) && not defined ( DEBUG_SERIAL )
+#define DEBUG_SERIAL
+#endif
 
 #define PZEM004_NO_SWSERIAL
 #include <PZEM004Tv30.h>  // https://github.com/mandulaj/PZEM-004T-v30
@@ -73,12 +84,16 @@ char str_post[2048];
 void setup(){
  pinMode(D5, INPUT_PULLUP); 
  pinMode(D6, INPUT_PULLUP); 
+
 #ifdef PZEM004_NO_SWSERIAL
   Serial.swap();
 #endif
+
+#ifdef DEBUG_SERIAL
   CONSOLE.begin(115200);
   delay(50);
   CONSOLE.println(".\nStart serial");
+#endif
 
   // if ( !digitalRead(D6) ){
     enable_collect_data=true;
@@ -94,11 +109,15 @@ void setup(){
   // clear PZEM energy counter
   energy = pzem.energy();
   if ( ( !isnan(energy) ) && ( energy > 0 ) ) {
+#ifndef DEBUG_SENSOR
+    pzem.resetEnergy();
+#else
     if ( pzem.resetEnergy()) {
       CONSOLE.println("Reset energy counter");
     }else{
       CONSOLE.println("Can't reset energy counter");
     }
+#endif
   }
  
   if (enable_collect_data) {
@@ -109,8 +128,12 @@ void setup(){
 
 void loop(){
 
-  CONSOLE.println("\n");  
+#if defined ( DEBUG_SENSOR ) || defined ( DBG_WIFI )
+  CONSOLE.println();
+#endif  
+#ifdef DEBUG_SERIAL
   CONSOLE.print("Round "); CONSOLE.println(upcounter++);
+#endif
   
   rc = read_pzem();
   if (rc){
@@ -122,7 +145,7 @@ void loop(){
   }else{
     memset(screen_cur,0,sizeof(screen_cur));
     strncpy(screen_cur[1]," !Sensor Error!",LCD_COLS);
-    if ( enable_collect_data && ( uint8_t(str_post[0]) != 0 ) ) {
+    if ( enable_collect_data && ( uint8_t(str_post[0]) != 0 ) ) { // data send emergency
       send_data();
       cnt=0;
     }else{
@@ -135,8 +158,10 @@ void loop(){
 }
 
 void collect_data(){
+#ifdef DBG_WIFI
   CONSOLE.print("Counter="); CONSOLE.println(cnt);
-  
+#endif
+
   dtostrf(voltage,1,1,str_voltage);
   dtostrf(current,1,3,str_current);
   dtostrf(power,1,1,str_power);
@@ -145,7 +170,9 @@ void collect_data(){
   dtostrf(pwfactor,1,2,str_pfactor);
   sprintf(str_tmp,"m%u=%s,%s,%s,%s,%s,%s,%u&",cnt,str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor,millis());
   if ( strlen(str_post) + strlen(str_tmp) >= sizeof(str_post)-1 ) {
+#ifdef DBG_WIFI
      CONSOLE.println("str_post is too short");
+#endif
      cnt = MEASUREMENTS;
   }else{
     if (cnt > 0){
@@ -155,7 +182,9 @@ void collect_data(){
     }
   }
 
+#ifdef DBG_WIFI
   CONSOLE.print("Length of buffer="); CONSOLE.println(strlen(str_post));
+#endif
   
   if (++cnt >= MEASUREMENTS) {
     send_data();
@@ -164,12 +193,16 @@ void collect_data(){
 }
 
 void send_data(){
+#ifdef DBG_WIFI
   CONSOLE.println("Send data");
+#endif
   strncpy(screen_cur[0],"Sending data...",LCD_COLS);
   draw_screen();
   //Check WiFi connection status
   if(WiFi.status() != WL_CONNECTED){
+#ifdef DBG_WIFI
     CONSOLE.println("WiFi Disconnected");
+#endif
     u8x8.clearDisplay();
     memset(screen_prev,0,sizeof(screen_prev));
     wifi_init();
@@ -192,8 +225,10 @@ void send_data(){
   sprintf(screen_cur[0],"Data sent: %d",httpResponseCode);
   draw_screen();
   
+#ifdef DBG_WIFI
   CONSOLE.print("HTTP Response code: "); CONSOLE.println(httpResponseCode);
   CONSOLE.println("Free resources");
+#endif
   
   // Free resources
   http.end();
@@ -201,9 +236,11 @@ void send_data(){
 }
 
 void wifi_init(){
+#ifdef DBG_WIFI
   CONSOLE.print("Connecting to ");
   CONSOLE.print(ssid);
   CONSOLE.println(" ...");
+#endif
   
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);             // Connect to the network 
@@ -216,7 +253,9 @@ void wifi_init(){
     if ( roll_cnt >= sizeof(roller) ) roll_cnt=0;
     delay(1000);
     i++;
+#ifdef DBG_WIFI
     CONSOLE.print(i); CONSOLE.print(' ');
+#endif
     if ( i > 300 ) {  // if don't connect then restart
       u8x8.clearDisplay();
       u8x8.drawString(2,2,"WiFi timeout");
@@ -229,10 +268,12 @@ void wifi_init(){
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
+#ifdef DBG_WIFI
   CONSOLE.println('\n');
   CONSOLE.println("Connection established!");  
   CONSOLE.print("IP address: ");CONSOLE.println(WiFi.localIP());
   CONSOLE.print("RSSI: ");CONSOLE.println(WiFi.RSSI());
+#endif
 }
 
 void fill_screen(){
@@ -259,55 +300,69 @@ void fill_screen(){
 }
 
 bool read_pzem(){
+#ifdef DEBUG_SENSOR
   CONSOLE.println("Read PZEM");  
-
-  //CONSOLE.print("Read PZEM,custom address:");
-  //CONSOLE.println(pzem.readAddress(), HEX);
+  //CONSOLE.print("Read PZEM,custom address:"); CONSOLE.println(pzem.readAddress(), HEX);
+#endif
 
   // Read the data from the sensor
 
   voltage = pzem.voltage();
   if(isnan(voltage)){
+#ifdef DEBUG_SENSOR
     CONSOLE.println("Error reading voltage");
+#endif
     return(false);
   }
   
   current = pzem.current();
   if (isnan(current)) {
+#ifdef DEBUG_SENSOR
     CONSOLE.println("Error reading current");  
+#endif
     return(false);
   } 
   
   power = pzem.power();
   if (isnan(power)) {
+#ifdef DEBUG_SENSOR
     CONSOLE.println("Error reading power");
+#endif
     return(false);
   }
 
   energy = pzem.energy();
   if (isnan(energy)) {
+#ifdef DEBUG_SENSOR
     CONSOLE.println("Error reading energy");
+#endif
     return(false);
   } 
 
   freq = pzem.frequency();
   if (isnan(freq)) {
+#ifdef DEBUG_SENSOR
     CONSOLE.println("Error reading frequency");
+#endif
     return(false);
   } 
 
   pwfactor = pzem.pf();
   if (isnan(pwfactor)) {
+#ifdef DEBUG_SENSOR
     CONSOLE.println("Error reading power factor");
+#endif
     return(false);
   }
 
+#ifdef DEBUG_SENSOR
   CONSOLE.print("Voltage: "); CONSOLE.println(voltage); // V
   CONSOLE.print("Current: "); CONSOLE.println(current,3); // A
   CONSOLE.print("Power: "); CONSOLE.println(power); // W
   CONSOLE.print("Energy: "); CONSOLE.println(energy,3); // kWh
   CONSOLE.print("Frequency: "); CONSOLE.println(freq); // Hz
   CONSOLE.print("PowerFactor: "); CONSOLE.println(pwfactor);
+#endif
 
   return(true);
 }
