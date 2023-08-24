@@ -1,6 +1,6 @@
 #define DEBUG_SERIAL  // because just "DEBUG" defined in PZEM004Tv30.h
 //#define DEBUG_SENSOR
-//#define DBG_WIFI    // because "DEBUG_WIFI" deifined in a WiFiClient library 
+#define DBG_WIFI    // because "DEBUG_WIFI" deifined in a WiFiClient library 
 
 #if defined ( DEBUG_SENSOR ) && not defined ( DEBUG_SERIAL )
 #define DEBUG_SERIAL
@@ -22,6 +22,8 @@
 #endif
 
 #include <U8x8lib.h>    // https://github.com/olikraus/u8g2
+
+#include <SimpleCLI.h>  // https://github.com/SpacehuhnTech/SimpleCLI
 
 #define SCL_PIN SCL  // SCL pin of OLED. Default: D1 (ESP8266) or D22 (ESP32)
 #define SDA_PIN SDA  // SDA pin of OLED. Default: D2 (ESP8266) or D21 (ESP32)
@@ -52,6 +54,9 @@ PZEM004Tv30 pzem(pzemSWSerial);
 // U8X8 Display constructors: https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(SCL_PIN, SDA_PIN, U8X8_PIN_NONE);
 
+// Create CLI Object
+SimpleCLI cli;
+
 //WiFi data
 char ssid[] = "SSID"; //WiFi Credential
 char pass[] = "PASSW"; //WiFi Password
@@ -70,6 +75,7 @@ bool rc=false;
 uint8_t roll_cnt=0;
 char roller[] = { '-', '/', '|', '\\' };
 bool enable_collect_data=false;
+bool enable_cli=false;
 
 char str_voltage[8];
 char str_current[8];
@@ -85,43 +91,58 @@ char screen_prev[LCD_ROWS][LCD_COLS+1];
 int cnt=0;
 char str_post[2048];
 
+// Commands
+Command cmdSsid;
+Command cmdPassw;
+Command cmdShow;
+Command cmdHelp;
+
 void setup(){
- pinMode(D5, INPUT_PULLUP); 
- pinMode(D6, INPUT_PULLUP); 
+  pinMode(D5, INPUT_PULLUP); 
+  pinMode(D6, INPUT_PULLUP); 
 
-#ifdef PZEM004_NO_SWSERIAL
-  Serial.swap();
-#endif
-
-#ifdef DEBUG_SERIAL
-  CONSOLE.begin(115200);
-  delay(50);
-  CONSOLE.println(".\nStart serial");
-#endif
-
-  // if ( !digitalRead(D6) ){
-    enable_collect_data=true;
-  // }
-  
   // initialize OLED
   u8x8.begin();
   // u8x8.setBusClock(400000);
   u8x8.setFont(u8x8_font_8x13_1x2_f);
-  u8x8.drawString(1, 0, "Booting...");
-  memset(screen_prev,0,sizeof(screen_prev));
-  
-  // clear PZEM energy counter
-  energy = pzem.energy();
-  if ( ( !isnan(energy) ) && ( energy > 0 ) ) {
-#ifndef DEBUG_SENSOR
-    pzem.resetEnergy();
-#else
-    if ( pzem.resetEnergy()) {
-      CONSOLE.println("Reset energy counter");
-    }else{
-      CONSOLE.println("Can't reset energy counter");
+
+  if ( !digitalRead(D5) ){
+    // Command line mode
+    enable_cli=true;
+    u8x8.drawString(0, 2, "CommandLine Mode");
+
+  }else{
+    // usual mode
+    if ( !digitalRead(D6) ){
+      enable_collect_data=true;
     }
+  
+#ifdef PZEM004_NO_SWSERIAL
+    Serial.swap();
 #endif
+
+#ifdef DEBUG_SERIAL
+    CONSOLE.begin(115200);
+    delay(50);
+    CONSOLE.println(".\nStart serial");
+#endif
+
+    u8x8.drawString(1, 0, "Booting...");
+    memset(screen_prev,0,sizeof(screen_prev));
+  
+    // clear PZEM energy counter
+    energy = pzem.energy();
+    if ( ( !isnan(energy) ) && ( energy > 0 ) ) {
+#ifndef DEBUG_SENSOR
+      pzem.resetEnergy();
+#else
+      if ( pzem.resetEnergy()) {
+        CONSOLE.println("Reset energy counter");
+      }else{
+        CONSOLE.println("Can't reset energy counter");
+      }
+#endif
+    }
   }
  
   if (enable_collect_data) {
@@ -131,6 +152,18 @@ void setup(){
 }
 
 void loop(){
+  if (enable_cli) {
+    loop_cli_mode();
+  }else{
+    loop_usual_mode();
+  }
+}
+
+void  loop_cli_mode(){
+  delay(SHORT_DELAY);
+}
+
+void loop_usual_mode(){
   ticks_start=millis();
 #if defined ( DEBUG_SENSOR ) || defined ( DBG_WIFI )
   CONSOLE.println();
