@@ -95,6 +95,9 @@ char str_post[2048];
 Command cmdSsid;
 Command cmdPassw;
 Command cmdShow;
+Command cmdHost;
+Command cmdPort;
+Command cmdUri;
 Command cmdHelp;
 
 void setup(){
@@ -106,11 +109,14 @@ void setup(){
   // u8x8.setBusClock(400000);
   u8x8.setFont(u8x8_font_8x13_1x2_f);
 
-  if ( !digitalRead(D5) ){
+  if ( digitalRead(D5) ){
     // Command line mode
     enable_cli=true;
     u8x8.drawString(0, 2, "CommandLine Mode");
-
+    Serial.begin(115200);
+    delay(50);
+    Serial.println("CommandLine Mode");
+    SetSimpleCli();
   }else{
     // usual mode
     if ( !digitalRead(D6) ){
@@ -159,9 +165,96 @@ void loop(){
   }
 }
 
+void SetSimpleCli(){
+  
+  cmdSsid = cli.addSingleArgCmd("ssid");
+  cmdSsid.setDescription(" Set WiFi SSID");
+  
+  cmdPassw = cli.addSingleArgCmd("passw");
+  cmdPassw.setDescription(" Set WiFi password");
+  
+  cmdHost = cli.addSingleArgCmd("host");
+  cmdHost.setDescription(" Set destination IP address");
+  
+  cmdPort = cli.addSingleArgCmd("port");
+  cmdPort.setDescription(" Set destination port");
+  
+  cmdPassw = cli.addSingleArgCmd("uri");
+  cmdPassw.setDescription(" Set destination URI");
+  
+  cmdShow = cli.addSingleArgCmd("show");
+  cmdShow.setDescription(" Show configuration");
+  
+  cmdHelp = cli.addSingleArgCmd("help");
+  cmdHelp.setDescription(" Get help");
+  
+}
+
+
 void  loop_cli_mode(){
+  String input;
+  // if (Serial.available()) {
+    // String input = Serial.readStringUntil('\n');
+    Serial.print("> ");
+    readStringWEcho(input,127);
+
+    if (input.length() > 0) {
+      Serial.print("# ");
+      Serial.println(input);
+
+      cli.parse(input);
+    }
+  // }
+
+  if (cli.available()) {
+    Command c = cli.getCmd();
+
+    uint8_t argNum = c.countArgs();
+
+    /*
+    Serial.print("> ");
+    Serial.print(c.getName());
+    Serial.print(' ');
+
+    for (uint8_t i = 0; i<argNum; ++i) {
+      Argument arg = c.getArgument(i);
+      // if(arg.isSet()) {
+      Serial.print(arg.toString());
+      Serial.print(' ');
+      // }
+    }
+    Serial.println();
+*/
+
+    if (c == cmdSsid) {
+      Serial.println("SSID is \"" + c.getArg(0).getValue() + "\"");
+    } else if (c == cmdPassw) {
+      Serial.println("Password is \"" + c.getArg(0).getValue() + "\"");
+    } else if (c == cmdShow) {
+      Serial.println("Show must go on");
+    } else if (c == cmdHelp) {
+      Serial.println("Help:");
+      Serial.println(cli.toString());
+    }
+    
+  }
+
+    if (cli.errored()) {
+      CommandError cmdError = cli.getError();
+
+      Serial.print("ERROR: ");
+      Serial.println(cmdError.toString());
+
+      if (cmdError.hasCommand()) {
+        Serial.print("Did you mean \"");
+        Serial.print(cmdError.getCommand().toString());
+        Serial.println("\"?");
+      }
+    }
+
   delay(SHORT_DELAY);
 }
+
 
 void loop_usual_mode(){
   ticks_start=millis();
@@ -460,4 +553,35 @@ void draw_screen(){
       }
     }
   } 
+}
+
+
+void readStringWEcho(String& input, size_t char_limit) { // call with char_limit == 0 for no limit
+
+  for(;;) {
+    if (Serial.available()) {
+      char c = Serial.read();
+      // u8x8.drawString(4,4,"    ");
+      // u8x8.setCursor(4,4);
+      // u8x8.print((uint8_t)c);
+      if ((uint8_t)c == 8) {
+        if ( input.length() ) {
+          input.remove(input.length()-1);
+          Serial.print('\r');
+          Serial.print("> ");
+          Serial.print(input);
+        }
+        continue;
+      }
+      if ((uint8_t)c == 13) {
+        Serial.println();
+        return;
+      }
+      input += c;
+      Serial.print(c);
+      if (char_limit && (input.length() >= char_limit)) {
+        return;
+      }
+    }
+  }
 }
