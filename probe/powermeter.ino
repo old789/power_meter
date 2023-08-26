@@ -32,6 +32,7 @@
 #define MEASUREMENTS 30
 #define MAIN_DELAY 1000
 #define SHORT_DELAY MAIN_DELAY/10
+#define MAX_ALLOWED_INPUT 127
 
 #ifdef PZEM004_NO_SWSERIAL
 
@@ -98,6 +99,7 @@ Command cmdShow;
 Command cmdHost;
 Command cmdPort;
 Command cmdUri;
+Command cmdSave;
 Command cmdHelp;
 
 void setup(){
@@ -165,97 +167,6 @@ void loop(){
   }
 }
 
-void SetSimpleCli(){
-  
-  cmdSsid = cli.addSingleArgCmd("ssid");
-  cmdSsid.setDescription(" Set WiFi SSID");
-  
-  cmdPassw = cli.addSingleArgCmd("passw");
-  cmdPassw.setDescription(" Set WiFi password");
-  
-  cmdHost = cli.addSingleArgCmd("host");
-  cmdHost.setDescription(" Set destination IP address");
-  
-  cmdPort = cli.addSingleArgCmd("port");
-  cmdPort.setDescription(" Set destination port");
-  
-  cmdPassw = cli.addSingleArgCmd("uri");
-  cmdPassw.setDescription(" Set destination URI");
-  
-  cmdShow = cli.addSingleArgCmd("show");
-  cmdShow.setDescription(" Show configuration");
-  
-  cmdHelp = cli.addSingleArgCmd("help");
-  cmdHelp.setDescription(" Get help");
-  
-}
-
-
-void  loop_cli_mode(){
-  String input;
-  // if (Serial.available()) {
-    // String input = Serial.readStringUntil('\n');
-    Serial.print("> ");
-    readStringWEcho(input,127);
-
-    if (input.length() > 0) {
-      Serial.print("# ");
-      Serial.println(input);
-
-      cli.parse(input);
-    }
-  // }
-
-  if (cli.available()) {
-    Command c = cli.getCmd();
-
-    uint8_t argNum = c.countArgs();
-
-    /*
-    Serial.print("> ");
-    Serial.print(c.getName());
-    Serial.print(' ');
-
-    for (uint8_t i = 0; i<argNum; ++i) {
-      Argument arg = c.getArgument(i);
-      // if(arg.isSet()) {
-      Serial.print(arg.toString());
-      Serial.print(' ');
-      // }
-    }
-    Serial.println();
-*/
-
-    if (c == cmdSsid) {
-      Serial.println("SSID is \"" + c.getArg(0).getValue() + "\"");
-    } else if (c == cmdPassw) {
-      Serial.println("Password is \"" + c.getArg(0).getValue() + "\"");
-    } else if (c == cmdShow) {
-      Serial.println("Show must go on");
-    } else if (c == cmdHelp) {
-      Serial.println("Help:");
-      Serial.println(cli.toString());
-    }
-    
-  }
-
-    if (cli.errored()) {
-      CommandError cmdError = cli.getError();
-
-      Serial.print("ERROR: ");
-      Serial.println(cmdError.toString());
-
-      if (cmdError.hasCommand()) {
-        Serial.print("Did you mean \"");
-        Serial.print(cmdError.getCommand().toString());
-        Serial.println("\"?");
-      }
-    }
-
-  delay(SHORT_DELAY);
-}
-
-
 void loop_usual_mode(){
   ticks_start=millis();
 #if defined ( DEBUG_SENSOR ) || defined ( DBG_WIFI )
@@ -301,130 +212,6 @@ unsigned long res = 0;
     return(SHORT_DELAY);
   }
   return( MAIN_DELAY - res );
-}
-
-void collect_data(){
-#ifdef DBG_WIFI
-  CONSOLE.print("Counter="); CONSOLE.println(cnt);
-#endif
-  unsigned long ticks_now=millis();
-
-  if ( ( ticks_last > ticks_now ) && ( uint8_t(str_post[0]) != 0 ) ) {  // data send if ticks counter was overflowed
-    send_data();
-  }
-  dtostrf(voltage,1,1,str_voltage);
-  dtostrf(current,1,3,str_current);
-  dtostrf(power,1,1,str_power);
-  dtostrf(energy,1,3,str_energy);
-  dtostrf(freq,1,1,str_freq);
-  dtostrf(pwfactor,1,2,str_pfactor);
-  sprintf(str_tmp,"m%u=%s,%s,%s,%s,%s,%s,%u&",cnt,str_voltage,str_current,str_power,str_energy,str_freq,str_pfactor,ticks_now);
-  if ( strlen(str_post) + strlen(str_tmp) >= sizeof(str_post)-1 ) {
-#ifdef DBG_WIFI
-     CONSOLE.println("str_post is too short");
-#endif
-     cnt = MEASUREMENTS;
-  }else{
-    if (cnt > 0){
-      strncat(str_post,str_tmp,sizeof(str_post)-1);
-    }else{
-      strncpy(str_post,str_tmp,sizeof(str_post)-1);
-    }
-  }
-  ticks_last=ticks_now;
-
-#ifdef DBG_WIFI
-  CONSOLE.print("Length of buffer="); CONSOLE.println(strlen(str_post));
-#endif
-  
-  if (++cnt >= MEASUREMENTS) {
-    send_data();
-  }
-}
-
-void send_data(){
-#ifdef DBG_WIFI
-  CONSOLE.println("Send data");
-#endif
-  strncpy(screen_cur[0],"Sending data...",LCD_COLS);
-  draw_screen();
-  //Check WiFi connection status
-  if(WiFi.status() != WL_CONNECTED){
-#ifdef DBG_WIFI
-    CONSOLE.println("WiFi Disconnected");
-#endif
-    u8x8.clearDisplay();
-    memset(screen_prev,0,sizeof(screen_prev));
-    wifi_init();
-  }
-  //CONSOLE.println("HTTP client");
-  HTTPClient http;
-
-  //CONSOLE.println("http begin");
-  // Your Domain name with URL path or IP address with path
-  http.begin(client, serverName);
-  
-  // If you need server authentication, insert user and password below
-  //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-    
-  //CONSOLE.println("http header");
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded");    
-  //http.addHeader("Content-Type", "text/plain");
-  //CONSOLE.println("http post");
-  int httpResponseCode = http.POST(str_post);
-  sprintf(screen_cur[0],"Data sent: %d",httpResponseCode);
-  draw_screen();
-  
-#ifdef DBG_WIFI
-  CONSOLE.print("HTTP Response code: "); CONSOLE.println(httpResponseCode);
-  CONSOLE.println("Free resources");
-#endif
-  
-  // Free resources
-  http.end();
-  memset(str_post,0,sizeof(str_post));
-  cnt=0;
-}
-
-void wifi_init(){
-#ifdef DBG_WIFI
-  CONSOLE.print("Connecting to ");
-  CONSOLE.print(ssid);
-  CONSOLE.println(" ...");
-#endif
-  
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pass);             // Connect to the network 
-
-  u8x8.drawString(0,2,"WiFi connecting");
-
-  uint16_t i = 0;
-  while (WiFi.status() != WL_CONNECTED) { // Wait for the Wi-Fi to connect
-    u8x8.drawGlyph(7,4,uint8_t(roller[roll_cnt++]));
-    if ( roll_cnt >= sizeof(roller) ) roll_cnt=0;
-    delay(1000);
-    i++;
-#ifdef DBG_WIFI
-    CONSOLE.print(i); CONSOLE.print(' ');
-#endif
-    if ( i > 300 ) {  // if don't connect then restart
-      u8x8.clearDisplay();
-      u8x8.drawString(2,2,"WiFi timeout");
-      u8x8.drawString(3,4,"Restarting");
-      delay(3000);
-      ESP.restart();
-    }
-  }
-  
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
-
-#ifdef DBG_WIFI
-  CONSOLE.println('\n');
-  CONSOLE.println("Connection established!");  
-  CONSOLE.print("IP address: ");CONSOLE.println(WiFi.localIP());
-  CONSOLE.print("RSSI: ");CONSOLE.println(WiFi.RSSI());
-#endif
 }
 
 void fill_screen(){
@@ -553,35 +340,4 @@ void draw_screen(){
       }
     }
   } 
-}
-
-
-void readStringWEcho(String& input, size_t char_limit) { // call with char_limit == 0 for no limit
-
-  for(;;) {
-    if (Serial.available()) {
-      char c = Serial.read();
-      // u8x8.drawString(4,4,"    ");
-      // u8x8.setCursor(4,4);
-      // u8x8.print((uint8_t)c);
-      if ((uint8_t)c == 8) {
-        if ( input.length() ) {
-          input.remove(input.length()-1);
-          Serial.print('\r');
-          Serial.print("> ");
-          Serial.print(input);
-        }
-        continue;
-      }
-      if ((uint8_t)c == 13) {
-        Serial.println();
-        return;
-      }
-      input += c;
-      Serial.print(c);
-      if (char_limit && (input.length() >= char_limit)) {
-        return;
-      }
-    }
-  }
 }
