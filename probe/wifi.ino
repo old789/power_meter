@@ -19,7 +19,7 @@ void collect_data(){
 #ifdef DBG_WIFI
      CONSOLE.println("str_post is too short");
 #endif
-     cnt = MEASUREMENTS;
+     cnt = measurements;
   }else{
     if (cnt > 0){
       strncat(str_post,str_tmp,sizeof(str_post)-1);
@@ -33,7 +33,7 @@ void collect_data(){
   CONSOLE.print("Length of buffer="); CONSOLE.println(strlen(str_post));
 #endif
   
-  if (++cnt >= MEASUREMENTS) {
+  if (++cnt >= measurements) {
     send_data();
   }
 }

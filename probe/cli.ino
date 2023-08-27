@@ -16,6 +16,9 @@ void SetSimpleCli(){
   cmdUri = cli.addSingleArgCmd("uri");
   cmdUri.setDescription(" Set destination URI");
   
+  cmdSizing = cli.addSingleArgCmd("sizing");
+  cmdSizing.setDescription(" Amount of measurements before send");
+
   cmdShow = cli.addSingleArgCmd("show");
   cmdShow.setDescription(" Show configuration");
   
@@ -73,6 +76,13 @@ void  loop_cli_mode(){
         c.getArg(0).getValue().toCharArray(host, sizeof(host)-1 );
         Serial.println("Host is \"" + c.getArg(0).getValue() + "\"");
       }
+    } else if (c == cmdSizing) {
+      if ( argLen == 0 ) {
+        Serial.println(emptyArg);
+      }else{
+        measurements = c.getArg(0).getValue().toInt();
+        Serial.println("Amount of measurements set to \"" + c.getArg(0).getValue() + "\"");
+      }
     } else if (c == cmdPort) {
       if ( argLen == 0 ) {
         Serial.println(emptyArg);
@@ -91,6 +101,7 @@ void  loop_cli_mode(){
     } else if (c == cmdSave) {
       Serial.println("Show must go on");
     } else if (c == cmdShow) {
+      Serial.print("Measurements = \"");Serial.print(measurements);Serial.println("\"");
       Serial.print("WiFi SSID = \"");Serial.print(ssid);Serial.println("\"");
       Serial.print("WiFi password = \"");Serial.print(passw);Serial.println("\"");
       Serial.print("Host = \"");Serial.print(host);Serial.println("\"");

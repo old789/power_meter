@@ -29,7 +29,6 @@
 #define SDA_PIN SDA  // SDA pin of OLED. Default: D2 (ESP8266) or D21 (ESP32)
 #define LCD_COLS 16
 #define LCD_ROWS 4
-#define MEASUREMENTS 30
 #define MAIN_DELAY 1000
 #define SHORT_DELAY MAIN_DELAY/10
 #define MAX_ALLOWED_INPUT 127
@@ -67,6 +66,7 @@ unsigned long ticks_sleep=0;
 unsigned long ticks_start=0;
 unsigned long ticks_last=0;
 bool rc=false;
+uint16_t cnt=0;
 uint8_t roll_cnt=0;
 char roller[] = { '-', '/', '|', '\\' };
 bool enable_collect_data=false;
@@ -79,23 +79,24 @@ char str_energy[16];
 char str_freq[8];
 char str_pfactor[8];
 char str_tmp[64];
+char str_post[2048];
 
 // OLED data
 char screen_cur[LCD_ROWS][LCD_COLS+1];
 char screen_prev[LCD_ROWS][LCD_COLS+1];
 
 // EEPROM data
+uint16_t measurements = 30;
 char ssid[33];
 char passw[65];
 char host[17];
-uint16_t port=80;
+uint16_t port = 80;
 char uri[128];
 bool eeprom_valid=false;
 
-int cnt=0;
-char str_post[2048];
 
 // Commands
+Command cmdSizing;
 Command cmdSsid;
 Command cmdPassw;
 Command cmdShow;
