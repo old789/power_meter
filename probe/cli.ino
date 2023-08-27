@@ -13,14 +13,17 @@ void SetSimpleCli(){
   cmdPort = cli.addSingleArgCmd("port");
   cmdPort.setDescription(" Set destination port");
   
-  cmdPassw = cli.addSingleArgCmd("uri");
-  cmdPassw.setDescription(" Set destination URI");
+  cmdUri = cli.addSingleArgCmd("uri");
+  cmdUri.setDescription(" Set destination URI");
   
   cmdShow = cli.addSingleArgCmd("show");
   cmdShow.setDescription(" Show configuration");
   
   cmdSave = cli.addSingleArgCmd("save");
   cmdSave.setDescription(" Save configuration to EEPROM");
+  
+  cmdReboot = cli.addSingleArgCmd("reboot");
+  cmdReboot.setDescription(" Reboot hard | soft");
   
   cmdHelp = cli.addSingleArgCmd("help");
   cmdHelp.setDescription(" Get help");
@@ -30,6 +33,10 @@ void SetSimpleCli(){
 
 void  loop_cli_mode(){
   String input;
+  char emptyArg[] = "Argument is empty, do nothing";
+  // uint8_t argNum = 0;
+  uint8_t argLen = 0;
+  
   Serial.print("> ");
   readStringWEcho(input, MAX_ALLOWED_INPUT);
 
@@ -39,23 +46,68 @@ void  loop_cli_mode(){
 
   if (cli.available()) {
     Command c = cli.getCmd();
-
-    uint8_t argNum = c.countArgs();
+    // argNum = c.countArgs();
+    argLen = c.getArg(0).getValue().length();
 
     if (c == cmdSsid) {
-      Serial.println("SSID is \"" + c.getArg(0).getValue() + "\"");
+      if ( argLen == 0 ) {
+        Serial.println(emptyArg);
+      }else{
+        memset(ssid, 0, sizeof(ssid));
+        c.getArg(0).getValue().toCharArray(ssid, sizeof(ssid)-1 );
+        Serial.println("SSID set to \"" + c.getArg(0).getValue() + "\"");
+      }
     } else if (c == cmdPassw) {
-      Serial.println("Password is \"" + c.getArg(0).getValue() + "\"");
+      if ( argLen == 0 ) {
+        Serial.println(emptyArg);
+      }else{
+        memset(passw, 0, sizeof(passw));
+        c.getArg(0).getValue().toCharArray(passw, sizeof(passw)-1 );
+        Serial.println("WiFi password set to \"" + c.getArg(0).getValue() + "\"");
+      }
     } else if (c == cmdHost) {
-      Serial.println("Host is \"" + c.getArg(0).getValue() + "\"");
+      if ( argLen == 0 ) {
+        Serial.println(emptyArg);
+      }else{
+        memset(host, 0, sizeof(host));
+        c.getArg(0).getValue().toCharArray(host, sizeof(host)-1 );
+        Serial.println("Host is \"" + c.getArg(0).getValue() + "\"");
+      }
     } else if (c == cmdPort) {
-      Serial.println("Port is \"" + c.getArg(0).getValue() + "\"");
+      if ( argLen == 0 ) {
+        Serial.println(emptyArg);
+      }else{
+        port = c.getArg(0).getValue().toInt();
+        Serial.println("Port set to \"" + c.getArg(0).getValue() + "\"");
+      }
     } else if (c == cmdUri) {
-      Serial.println("URI is \"" + c.getArg(0).getValue() + "\"");
+      if ( argLen == 0 ) {
+        Serial.println(emptyArg);
+      }else{
+        memset(uri, 0, sizeof(uri));
+        c.getArg(0).getValue().toCharArray(uri, sizeof(uri)-1 );
+        Serial.println("URI set to \"" + c.getArg(0).getValue() + "\"");
+      }
     } else if (c == cmdSave) {
-      Serial.println("Configuration saved");
-    } else if (c == cmdShow) {
       Serial.println("Show must go on");
+    } else if (c == cmdShow) {
+      Serial.print("WiFi SSID = \"");Serial.print(ssid);Serial.println("\"");
+      Serial.print("WiFi password = \"");Serial.print(passw);Serial.println("\"");
+      Serial.print("Host = \"");Serial.print(host);Serial.println("\"");
+      Serial.print("Port = \"");Serial.print(port);Serial.println("\"");
+      Serial.print("URI = \"");Serial.print(uri);Serial.println("\"");
+    } else if (c == cmdReboot) {
+      if ( ( argLen == 0 ) || c.getArg(0).getValue().equalsIgnoreCase("soft") ) {
+        Serial.println("Reboot...");
+        delay(3000);
+        ESP.restart();
+      }else if ( c.getArg(0).getValue().equalsIgnoreCase("hard") ){
+        Serial.println("Reset...");
+        delay(3000);
+        ESP.reset();
+      }else{
+        Serial.println("Unknown argument, allowed only \"hard\" or \"soft\"");
+      }
     } else if (c == cmdHelp) {
       Serial.println("Help:");
       Serial.println(cli.toString());

@@ -58,7 +58,8 @@ void send_data(){
 
   //CONSOLE.println("http begin");
   // Your Domain name with URL path or IP address with path
-  http.begin(client, serverName);
+  // http.begin(client, serverName);
+  http.begin(client, host, port, uri);
   
   // If you need server authentication, insert user and password below
   //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
@@ -90,7 +91,7 @@ void wifi_init(){
 #endif
   
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pass);             // Connect to the network 
+  WiFi.begin(ssid, passw);             // Connect to the network 
 
   u8x8.drawString(0,2,"WiFi connecting");
 

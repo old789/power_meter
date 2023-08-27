@@ -58,13 +58,7 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(SCL_PIN, SDA_PIN, U8X8_PIN_NONE);
 // Create CLI Object
 SimpleCLI cli;
 
-//WiFi data
-char ssid[] = "SSID"; //WiFi Credential
-char pass[] = "PASSW"; //WiFi Password
-
-//Domain name with URL
-const char* serverName = "http://10.10.10.10/pwr/pwrm.php";
-
+// Create WiFi Client 
 WiFiClient client;
 
 double voltage, current, power, energy, freq, pwfactor;
@@ -86,8 +80,17 @@ char str_freq[8];
 char str_pfactor[8];
 char str_tmp[64];
 
+// OLED data
 char screen_cur[LCD_ROWS][LCD_COLS+1];
 char screen_prev[LCD_ROWS][LCD_COLS+1];
+
+// EEPROM data
+char ssid[33];
+char passw[65];
+char host[17];
+uint16_t port=80;
+char uri[128];
+bool eeprom_valid=false;
 
 int cnt=0;
 char str_post[2048];
@@ -100,6 +103,7 @@ Command cmdHost;
 Command cmdPort;
 Command cmdUri;
 Command cmdSave;
+Command cmdReboot;
 Command cmdHelp;
 
 void setup(){
