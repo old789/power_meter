@@ -21,6 +21,8 @@
 #include <SoftwareSerial.h>
 #endif
 
+#include <EEPROM.h>
+
 #include <U8x8lib.h>    // https://github.com/olikraus/u8g2
 
 #include <SimpleCLI.h>  // https://github.com/SpacehuhnTech/SimpleCLI
@@ -86,6 +88,7 @@ char screen_cur[LCD_ROWS][LCD_COLS+1];
 char screen_prev[LCD_ROWS][LCD_COLS+1];
 
 // EEPROM data
+uint16_t mark = 0x55aa;
 uint16_t measurements = 30;
 char ssid[33];
 char passw[65];
@@ -94,6 +97,13 @@ uint16_t port = 80;
 char uri[128];
 bool eeprom_valid=false;
 
+#define PT_MEASUREMENTS sizeof(mark)
+#define PT_SSID         PT_MEASUREMENTS + sizeof(measurements)
+#define PT_PASSW        PT_SSID + sizeof(passw)
+#define PT_HOST         PT_PASSW + sizeof(passw)
+#define PT_PORT         PT_HOST + sizeof(host)
+#define PT_URI          PT_PORT + sizeof(uri)
+#define SIZE_EEPROM     PT_URI + sizeof(uri) - 1
 
 // Commands
 Command cmdSizing;
@@ -116,6 +126,8 @@ void setup(){
   // u8x8.setBusClock(400000);
   u8x8.setFont(u8x8_font_8x13_1x2_f);
 
+  EEPROM.begin(2028);
+
   if ( digitalRead(D5) ){
     // Command line mode
     enable_cli=true;
@@ -123,11 +135,15 @@ void setup(){
     Serial.begin(115200);
     delay(50);
     Serial.println("CommandLine Mode");
+    eeprom_read();
     SetSimpleCli();
   }else{
     // usual mode
     if ( !digitalRead(D6) ){
-      enable_collect_data=true;
+      eeprom_read();
+      if ( eeprom_valid ) {
+        enable_collect_data=true;
+      }
     }
   
 #ifdef PZEM004_NO_SWSERIAL
