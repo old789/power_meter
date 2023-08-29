@@ -1,6 +1,6 @@
 #define DEBUG_SERIAL  // because just "DEBUG" defined in PZEM004Tv30.h
 //#define DEBUG_SENSOR
-#define DBG_WIFI    // because "DEBUG_WIFI" deifined in a WiFiClient library 
+#define DBG_WIFI    // because "DEBUG_WIFI" defined in a WiFiClient library 
 
 #if defined ( DEBUG_SENSOR ) && not defined ( DEBUG_SERIAL )
 #define DEBUG_SERIAL
@@ -95,7 +95,6 @@ char passw[65];
 char host[17];
 uint16_t port = 80;
 char uri[128];
-bool eeprom_valid=false;
 
 #define PT_MEASUREMENTS sizeof(mark)
 #define PT_SSID         PT_MEASUREMENTS + sizeof(measurements)
@@ -103,7 +102,8 @@ bool eeprom_valid=false;
 #define PT_HOST         PT_PASSW + sizeof(passw)
 #define PT_PORT         PT_HOST + sizeof(host)
 #define PT_URI          PT_PORT + sizeof(uri)
-#define SIZE_EEPROM     PT_URI + sizeof(uri) - 1
+#define PT_CRC          PT_URI + sizeof(uri)
+#define SIZE_EEPROM     PT_URI + sizeof(uri) - 1 // PT_CRC d'not count
 
 // Commands
 Command cmdSizing;
@@ -126,24 +126,29 @@ void setup(){
   // u8x8.setBusClock(400000);
   u8x8.setFont(u8x8_font_8x13_1x2_f);
 
-  EEPROM.begin(2028);
+  EEPROM.begin(2048);
 
-  if ( digitalRead(D5) ){
+  if ( !digitalRead(D5) ){
     // Command line mode
     enable_cli=true;
     u8x8.drawString(0, 2, "CommandLine Mode");
     Serial.begin(115200);
     delay(50);
     Serial.println("CommandLine Mode");
-    eeprom_read();
+    (void)eeprom_read();
     SetSimpleCli();
   }else{
     // usual mode
-    if ( !digitalRead(D6) ){
-      eeprom_read();
-      if ( eeprom_valid ) {
-        enable_collect_data=true;
+    if ( !digitalRead(D6) ){  // WiFi enable
+      if ( ! eeprom_read() ) {
+        u8x8.drawString(1, 2, "EEPROM failed");
+        for(;;) delay(MAIN_DELAY);
       }
+      if ( ! is_conf_correct() ) {
+        u8x8.drawString(1, 2, "Conf. incorrect");
+        for(;;) delay(MAIN_DELAY);
+      }
+      enable_collect_data=true;
     }
   
 #ifdef PZEM004_NO_SWSERIAL

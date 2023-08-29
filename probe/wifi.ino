@@ -123,3 +123,10 @@ void wifi_init(){
   CONSOLE.print("RSSI: ");CONSOLE.println(WiFi.RSSI());
 #endif
 }
+
+bool is_conf_correct(){
+  if ( ( measurements == 0 ) || ( strlen(ssid) == 0 ) || ( strlen(passw) == 0 ) || ( strlen(host) == 0 ) || ( port == 0 ) || ( strlen(uri) == 0 ) ){
+    return(false);
+  }
+  return(true);
+}

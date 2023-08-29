@@ -99,9 +99,8 @@ void  loop_cli_mode(){
         Serial.println("URI set to \"" + c.getArg(0).getValue() + "\"");
       }
     } else if (c == cmdSave) {
-      if ( eeprom_save() ) {
-        Serial.println("Configuration saved to EEPROM");
-      }
+      eeprom_save();
+      Serial.println("Configuration saved to EEPROM");
     } else if (c == cmdShow) {
       Serial.print("Measurements = \"");Serial.print(measurements);Serial.println("\"");
       Serial.print("WiFi SSID = \"");Serial.print(ssid);Serial.println("\"");
@@ -140,8 +139,6 @@ void  loop_cli_mode(){
       Serial.println("\"?");
     }
   }
-
-  // delay(SHORT_DELAY);
 }
 
 
