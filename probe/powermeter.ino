@@ -1,5 +1,5 @@
 #define DEBUG_SERIAL  // because just "DEBUG" defined in PZEM004Tv30.h
-//#define DEBUG_SENSOR
+#define DEBUG_SENSOR
 #define DBG_WIFI    // because "DEBUG_WIFI" defined in a WiFiClient library 
 
 #if defined ( DEBUG_SENSOR ) && not defined ( DEBUG_SERIAL )
@@ -163,7 +163,8 @@ void setup(){
 
     u8x8.drawString(1, 0, "Booting...");
     memset(screen_prev,0,sizeof(screen_prev));
-  
+    // start PZEM
+    delay(2000);
     // clear PZEM energy counter
     energy = pzem.energy();
     if ( ( !isnan(energy) ) && ( energy > 0 ) ) {
