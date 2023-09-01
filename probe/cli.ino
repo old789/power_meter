@@ -1,36 +1,36 @@
 
 void SetSimpleCli(){
-  
+
   cmdSsid = cli.addSingleArgCmd("ssid");
   cmdSsid.setDescription(" Set WiFi SSID");
-  
+
   cmdPassw = cli.addSingleArgCmd("passw");
   cmdPassw.setDescription(" Set WiFi password");
-  
+
   cmdHost = cli.addSingleArgCmd("host");
   cmdHost.setDescription(" Set destination IP address");
-  
+
   cmdPort = cli.addSingleArgCmd("port");
   cmdPort.setDescription(" Set destination port");
-  
+
   cmdUri = cli.addSingleArgCmd("uri");
   cmdUri.setDescription(" Set destination URI");
-  
+
   cmdSizing = cli.addSingleArgCmd("sizing");
   cmdSizing.setDescription(" Amount of measurements before send");
 
   cmdShow = cli.addSingleArgCmd("show");
   cmdShow.setDescription(" Show configuration");
-  
+
   cmdSave = cli.addSingleArgCmd("save");
   cmdSave.setDescription(" Save configuration to EEPROM");
-  
+
   cmdReboot = cli.addSingleArgCmd("reboot");
   cmdReboot.setDescription(" Reboot hard | soft");
-  
+
   cmdHelp = cli.addSingleArgCmd("help");
   cmdHelp.setDescription(" Get help");
-  
+
 }
 
 
@@ -39,7 +39,7 @@ void  loop_cli_mode(){
   char emptyArg[] = "Argument is empty, do nothing";
   // uint8_t argNum = 0;
   uint8_t argLen = 0;
-  
+
   Serial.print("> ");
   readStringWEcho(input, MAX_ALLOWED_INPUT);
 
@@ -124,7 +124,7 @@ void  loop_cli_mode(){
       Serial.println("Help:");
       Serial.println(cli.toString());
     }
-    
+
   }
 
   if (cli.errored()) {

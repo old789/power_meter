@@ -22,7 +22,7 @@ unsigned long ram_crc() {
   byte *buf = (byte*)malloc( SIZE_EEPROM + 8 );
 
   if ( ! buf ){
-    if ( enable_cli ) 
+    if ( enable_cli )
       Serial.println("Can't allocate memory");
     return(0);
   }

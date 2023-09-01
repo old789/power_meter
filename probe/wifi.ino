@@ -32,7 +32,7 @@ void collect_data(){
 #ifdef DBG_WIFI
   CONSOLE.print("Length of buffer="); CONSOLE.println(strlen(str_post));
 #endif
-  
+
   if (++cnt >= measurements) {
     send_data();
   }
@@ -60,23 +60,23 @@ void send_data(){
   // Your Domain name with URL path or IP address with path
   // http.begin(client, serverName);
   http.begin(client, host, port, uri);
-  
+
   // If you need server authentication, insert user and password below
   //http.setAuthorization("REPLACE_WITH_SERVER_USERNAME", "REPLACE_WITH_SERVER_PASSWORD");
-    
+
   //CONSOLE.println("http header");
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded");    
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   //http.addHeader("Content-Type", "text/plain");
   //CONSOLE.println("http post");
   int httpResponseCode = http.POST(str_post);
   sprintf(screen_cur[0],"Data sent: %d",httpResponseCode);
   draw_screen();
-  
+
 #ifdef DBG_WIFI
   CONSOLE.print("HTTP Response code: "); CONSOLE.println(httpResponseCode);
   CONSOLE.println("Free resources");
 #endif
-  
+
   // Free resources
   http.end();
   memset(str_post,0,sizeof(str_post));
@@ -89,9 +89,9 @@ void wifi_init(){
   CONSOLE.print(ssid);
   CONSOLE.println(" ...");
 #endif
-  
+
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, passw);             // Connect to the network 
+  WiFi.begin(ssid, passw);             // Connect to the network
 
   u8x8.drawString(0,2,"WiFi connecting");
 
@@ -112,13 +112,13 @@ void wifi_init(){
       ESP.restart();
     }
   }
-  
+
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
 #ifdef DBG_WIFI
   CONSOLE.println('\n');
-  CONSOLE.println("Connection established!");  
+  CONSOLE.println("Connection established!");
   CONSOLE.print("IP address: ");CONSOLE.println(WiFi.localIP());
   CONSOLE.print("RSSI: ");CONSOLE.println(WiFi.RSSI());
 #endif

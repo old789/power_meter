@@ -1,6 +1,6 @@
-#define DEBUG_SERIAL  // because just "DEBUG" defined in PZEM004Tv30.h
-#define DEBUG_SENSOR
-#define DBG_WIFI    // because "DEBUG_WIFI" defined in a WiFiClient library 
+//#define DEBUG_SERIAL  // because just "DEBUG" defined in PZEM004Tv30.h
+//#define DEBUG_SENSOR
+//#define DBG_WIFI    // because "DEBUG_WIFI" defined in a WiFiClient library
 
 #if defined ( DEBUG_SENSOR ) && not defined ( DEBUG_SERIAL )
 #define DEBUG_SERIAL
@@ -59,7 +59,7 @@ U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(SCL_PIN, SDA_PIN, U8X8_PIN_NONE);
 // Create CLI Object
 SimpleCLI cli;
 
-// Create WiFi Client 
+// Create WiFi Client
 WiFiClient client;
 
 double voltage, current, power, energy, freq, pwfactor;
@@ -118,8 +118,8 @@ Command cmdReboot;
 Command cmdHelp;
 
 void setup(){
-  pinMode(D5, INPUT_PULLUP); 
-  pinMode(D6, INPUT_PULLUP); 
+  pinMode(D5, INPUT_PULLUP);
+  pinMode(D6, INPUT_PULLUP);
 
   // initialize OLED
   u8x8.begin();
@@ -150,7 +150,7 @@ void setup(){
       }
       enable_collect_data=true;
     }
-  
+
 #ifdef PZEM004_NO_SWSERIAL
     Serial.swap();
 #endif
@@ -179,7 +179,7 @@ void setup(){
 #endif
     }
   }
- 
+
   if (enable_collect_data) {
     wifi_init();
     memset(str_post,0,sizeof(str_post));
@@ -198,11 +198,11 @@ void loop_usual_mode(){
   ticks_start=millis();
 #if defined ( DEBUG_SENSOR ) || defined ( DBG_WIFI )
   CONSOLE.println();
-#endif  
+#endif
 #ifdef DEBUG_SERIAL
   CONSOLE.print("Round "); CONSOLE.println(upcounter++);
 #endif
-  
+
   rc = read_pzem();
   if (rc){
     fill_screen();
@@ -246,7 +246,7 @@ void fill_screen(){
 
   strncpy(screen_cur[0],"  Measurement  ",LCD_COLS);
   strncat(screen_cur[0],roller+roll_cnt++,1);
-  
+
   if ( roll_cnt >= sizeof(roller) ) roll_cnt=0;
 
   dtostrf(power,7,2,screen_cur[1]);
@@ -266,7 +266,7 @@ void fill_screen(){
 
 bool read_pzem(){
 #ifdef DEBUG_SENSOR
-  CONSOLE.println("Read PZEM");  
+  CONSOLE.println("Read PZEM");
   //CONSOLE.print("Read PZEM,custom address:"); CONSOLE.println(pzem.readAddress(), HEX);
 #endif
 
@@ -279,15 +279,15 @@ bool read_pzem(){
 #endif
     return(false);
   }
-  
+
   current = pzem.current();
   if (isnan(current)) {
 #ifdef DEBUG_SENSOR
-    CONSOLE.println("Error reading current");  
+    CONSOLE.println("Error reading current");
 #endif
     return(false);
-  } 
-  
+  }
+
   power = pzem.power();
   if (isnan(power)) {
 #ifdef DEBUG_SENSOR
@@ -302,7 +302,7 @@ bool read_pzem(){
     CONSOLE.println("Error reading energy");
 #endif
     return(false);
-  } 
+  }
 
   freq = pzem.frequency();
   if (isnan(freq)) {
@@ -310,7 +310,7 @@ bool read_pzem(){
     CONSOLE.println("Error reading frequency");
 #endif
     return(false);
-  } 
+  }
 
   pwfactor = pzem.pf();
   if (isnan(pwfactor)) {
@@ -338,12 +338,12 @@ void draw_screen(){
     for (uint8_t i=0; i<LCD_ROWS; i++){
        if (strlen(screen_cur[i]) > 0){
             u8x8.drawString(0,i+i,screen_cur[i]);
-       } 
+       }
     }
     memcpy(screen_prev,screen_cur,sizeof(screen_prev));
     return;
   }
-  
+
   for ( uint8_t i=0; i < LCD_ROWS; i++ ){
     for ( uint8_t j=0; j < LCD_COLS; j++ ){
       if ( screen_cur[i][j] != screen_prev[i][j] ) {
@@ -352,7 +352,7 @@ void draw_screen(){
           screen_prev[i][j] = screen_cur[i][j];
           u8x8.drawGlyph(j,i+i,screen_cur[i][j]);
         } else {
-          // clear the rest of the string 
+          // clear the rest of the string
           for ( uint8_t k=j; k < LCD_COLS; k++ ) {
             if ( screen_prev[i][k] == 0 ) {
               break;
@@ -366,5 +366,5 @@ void draw_screen(){
         }
       }
     }
-  } 
+  }
 }
